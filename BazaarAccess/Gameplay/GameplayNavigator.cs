@@ -68,6 +68,12 @@ public class GameplayNavigator
     // Modo combate
     private bool _inCombat = false;
 
+    // Estado del stash (abierto/cerrado)
+    private bool _stashOpen = false;
+
+    // Modo replay (post-combate)
+    private bool _inReplayMode = false;
+
     // Navegación detallada línea por línea
     private List<string> _detailLines = new List<string>();
     private int _detailIndex = -1;
@@ -314,6 +320,68 @@ public class GameplayNavigator
     }
 
     /// <summary>
+    /// Indica si estamos en modo combate.
+    /// </summary>
+    public bool IsInCombat => _inCombat;
+
+    /// <summary>
+    /// Indica si estamos en modo replay (post-combate).
+    /// </summary>
+    public bool IsInReplayMode => _inReplayMode;
+
+    /// <summary>
+    /// Activa o desactiva el modo replay (post-combate).
+    /// </summary>
+    public void SetReplayMode(bool inReplayMode)
+    {
+        _inReplayMode = inReplayMode;
+        if (inReplayMode)
+        {
+            // Salir del modo combate si entramos en replay
+            _inCombat = false;
+        }
+    }
+
+    /// <summary>
+    /// Actualiza el estado del stash (abierto/cerrado).
+    /// </summary>
+    public void SetStashState(bool isOpen)
+    {
+        _stashOpen = isOpen;
+
+        if (isOpen)
+        {
+            // Refrescar el stash cuando se abre
+            RefreshStash();
+        }
+        else
+        {
+            // Si el stash se cierra y estamos navegando en él, salir
+            if (_currentSection == NavigationSection.Stash)
+            {
+                _stashIndices.Clear();
+                // Ir al board o selección
+                if (_boardIndices.Count > 0)
+                {
+                    GoToSection(NavigationSection.Board);
+                }
+                else if (_selectionItems.Count > 0)
+                {
+                    GoToSection(NavigationSection.Selection);
+                }
+                else
+                {
+                    GoToSection(NavigationSection.Hero);
+                }
+            }
+            else
+            {
+                _stashIndices.Clear();
+            }
+        }
+    }
+
+    /// <summary>
     /// Lee la información del enemigo/NPC actual.
     /// </summary>
     public void ReadEnemyInfo()
@@ -370,6 +438,12 @@ public class GameplayNavigator
     /// </summary>
     public void GoToStash()
     {
+        if (!_stashOpen)
+        {
+            TolkWrapper.Speak("Stash is closed");
+            return;
+        }
+
         if (_stashIndices.Count > 0)
         {
             GoToSection(NavigationSection.Stash);
@@ -393,7 +467,8 @@ public class GameplayNavigator
 
         if (_selectionItems.Count > 0) list.Add(NavigationSection.Selection);
         if (_boardIndices.Count > 0) list.Add(NavigationSection.Board);
-        if (_stashIndices.Count > 0) list.Add(NavigationSection.Stash);
+        // Solo incluir Stash si está abierto
+        if (_stashOpen && _stashIndices.Count > 0) list.Add(NavigationSection.Stash);
         if (_skillIndices.Count > 0) list.Add(NavigationSection.Skills);
         list.Add(NavigationSection.Hero); // Hero siempre disponible
         return list;
@@ -443,8 +518,19 @@ public class GameplayNavigator
 
         if (selCount > 0)
         {
-            string type = GetSelectionTypeName();
-            parts.Add($"{selCount} {type}");
+            // Contar solo cartas (no Exit/Reroll)
+            int cardCount = _selectionItems.Count(i => i.Type == NavItemType.Card);
+            if (cardCount > 0)
+            {
+                string type = GetSelectionTypeName();
+                parts.Add($"{cardCount} {type}");
+
+                // Indicar si auto-sale después de seleccionar
+                if (WillAutoExit())
+                {
+                    parts.Add("select to continue");
+                }
+            }
         }
         if (boardCount > 0)
         {
@@ -465,10 +551,31 @@ public class GameplayNavigator
         var cards = _selectionItems.Where(i => i.Type == NavItemType.Card).ToList();
         if (cards.Count == 0) return "options";
 
+        // En estado de Loot, son recompensas
+        var state = GetCurrentState();
+        if (state == ERunState.Loot) return "rewards";
+
         var firstCard = cards[0].Card;
         if (IsEncounterCard(firstCard)) return "encounters";
         if (firstCard.Type == ECardType.Skill) return "skills";
         return "items";
+    }
+
+    /// <summary>
+    /// Verifica si el estado actual sale automáticamente después de seleccionar.
+    /// </summary>
+    public bool WillAutoExit()
+    {
+        try
+        {
+            // Si no se puede salir manualmente, es porque auto-sale
+            bool canExit = Data.CurrentState?.SelectionContextRules?.CanExit ?? true;
+            return !canExit;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public void AnnounceSection()

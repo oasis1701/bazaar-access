@@ -444,23 +444,89 @@ Choice      → "Shop" (tienda)
 Encounter   → "Choose encounter"
 Combat      → "Combat" (PvE)
 PVPCombat   → "PvP Combat"
-Loot        → "Loot" (recompensas)
-LevelUp     → "Level up"
+Loot        → "Choose your reward" (recompensas)
+LevelUp     → "Level up - choose skill"
 Pedestal    → "Upgrade station"
 EndRunVictory → "Victory!"
 EndRunDefeat  → "Defeat"
 ```
+
+### Modo Combate
+
+Durante el combate (`ERunState.Combat` o `ERunState.PVPCombat`):
+- **Solo V y F funcionan**: V para Hero stats, F para Enemy stats
+- **Todas las demás teclas están desactivadas**: B, C, Tab, flechas de navegación, etc.
+- El tablero está "volteado" (`IsBoardFlipped`) y no es accesible visualmente
+- Se anuncia "Combat started" al iniciar y "Combat ended" al terminar
+
+### Post-Combate (ReplayState)
+
+Después del combate, se entra en `ReplayState`:
+- Se anuncia: "Combat finished. Press E to continue, R to replay, or Enter for recap."
+- **E**: Continuar (sale del ReplayState)
+- **R**: Repetir el combate (replay)
+- **Enter**: Ver resumen (recap)
+- Todas las demás teclas están desactivadas
+
+### Stash (Almacén)
+
+El stash se abre/cierra con **Espacio** en el juego:
+- `Events.StorageToggled` dispara cuando cambia
+- `Data.IsStorageOpen` indica el estado actual
+- La navegación solo muestra el Stash cuando está abierto
+- Si el stash se cierra mientras navegas en él, automáticamente sales a otra sección
+
+### Auto-Exit vs Manual Exit
+
+Algunos estados salen automáticamente después de seleccionar:
+- `SelectionContextRules.CanExit = true` → Se muestra opción Exit, usuario debe presionar E
+- `SelectionContextRules.CanExit = false` → No hay Exit, seleccionar auto-continúa
+
+El anuncio indica "select to continue" cuando el estado auto-saldrá.
+
+---
+
+## Eventos del Juego Suscritos (StateChangePatch)
+
+### TheBazaar.Events (via reflexión)
+- `StateChanged`: Cambios de estado del juego
+- `BoardTransitionFinished`: Animaciones de transición completadas
+- `NewDayTransitionAnimationFinished`: Animación de nuevo día completada
+- `ItemCardsRevealed` / `SkillCardsRevealed`: Cartas reveladas (UI lista)
+- `CombatStarted` / `CombatEnded`: Inicio y fin de combate
+- `CardPurchasedSimEvent` / `CardSoldSimEvent`: Compra/venta confirmada por servidor
+- `CardDisposedSimEvent`: Cartas eliminadas de la selección
+- `CardSelected`: Carta seleccionada (skills)
+- `StorageToggled`: Stash abierto/cerrado
+- `OnBoardChanged`: Cambios en el tablero
+
+### AppState Events (C# events)
+- `ItemPurchased`: Item comprado/seleccionado (incluye loot)
+
+### AppState Static Events (via reflexión)
+- `StateExited`: Salida de un estado
+- `EncounterEntered`: Entrada a un encuentro
+
+### BoardManager Events
+- `ItemCardsRevealed`: Items revelados
+- `SkillCardsRevealed`: Skills reveladas
 
 ---
 
 ## Implementado Recientemente
 
 - ✅ Sistema de eventos nativos del juego (sin delays arbitrarios)
-- ✅ Modo combate simplificado (solo Hero)
+- ✅ Modo combate simplificado (solo Hero y Enemy con V/F)
+- ✅ Restricción completa de teclas durante combate (B, C, Tab desactivados)
 - ✅ Información del enemigo con tecla F
 - ✅ Reordenamiento de items en el Board (Shift+Izq/Der)
 - ✅ Mover items entre Board y Stash (Shift+Arriba/Abajo)
 - ✅ Lectura detallada línea por línea (Ctrl+Flecha)
+- ✅ Detección de estado del Stash (abierto/cerrado)
+- ✅ Post-combate accesible (ReplayState con E/R/Enter)
+- ✅ Refresh de UI después de seleccionar items (CardSelected, ItemPurchased, CardDisposed)
+- ✅ Detección de auto-exit ("select to continue")
+- ✅ Mejores descripciones de estado (Loot → "Choose your reward", LevelUp → "Level up - choose skill")
 
 ## Pendiente por Implementar
 

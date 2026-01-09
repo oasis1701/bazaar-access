@@ -31,6 +31,80 @@ public class GameplayScreen : IAccessibleScreen
 
     public void HandleInput(AccessibleKey key)
     {
+        // En modo replay (post-combate), solo E/R/Enter
+        if (_navigator.IsInReplayMode)
+        {
+            switch (key)
+            {
+                case AccessibleKey.Exit:
+                    TriggerReplayContinue();
+                    break;
+
+                case AccessibleKey.Reroll:
+                    TriggerReplayReplay();
+                    break;
+
+                case AccessibleKey.Confirm:
+                    TriggerReplayRecap();
+                    break;
+
+                case AccessibleKey.Back:
+                    TolkWrapper.Speak("Combat finished. Press E to continue, R to replay, or Enter for recap.");
+                    break;
+
+                // Ignorar todas las demás teclas durante replay mode
+                default:
+                    break;
+            }
+            return;
+        }
+
+        // Verificar estado de combate tanto por el flag como por el ERunState actual
+        var currentState = StateChangePatch.GetCurrentRunState();
+        bool inCombat = _navigator.IsInCombat ||
+                        currentState == ERunState.Combat ||
+                        currentState == ERunState.PVPCombat;
+
+        // En modo combate, solo permitir V (Hero) y F (Enemy)
+        if (inCombat)
+        {
+            switch (key)
+            {
+                case AccessibleKey.GoToHero:
+                    _navigator.GoToHero();
+                    break;
+
+                case AccessibleKey.GoToEnemy:
+                    _navigator.ReadEnemyInfo();
+                    break;
+
+                case AccessibleKey.Up:
+                case AccessibleKey.Down:
+                    if (_navigator.IsInHeroSection)
+                    {
+                        if (key == AccessibleKey.Up)
+                            _navigator.Previous();
+                        else
+                            _navigator.Next();
+                    }
+                    break;
+
+                case AccessibleKey.Confirm:
+                    if (_navigator.IsInHeroSection)
+                        _navigator.ReadAllHeroStats();
+                    break;
+
+                case AccessibleKey.Back:
+                    _navigator.AnnounceState();
+                    break;
+
+                // Ignorar todas las demás teclas durante combate
+                default:
+                    break;
+            }
+            return;
+        }
+
         switch (key)
         {
             // Navegación de secciones
@@ -624,6 +698,112 @@ public class GameplayScreen : IAccessibleScreen
         else
         {
             TolkWrapper.Speak("Combat ended.");
+        }
+    }
+
+    /// <summary>
+    /// Llamado cuando se abre/cierra el stash.
+    /// </summary>
+    public void OnStorageToggled(bool isOpen)
+    {
+        _navigator.SetStashState(isOpen);
+
+        if (isOpen)
+        {
+            TolkWrapper.Speak("Stash opened");
+        }
+        else
+        {
+            TolkWrapper.Speak("Stash closed");
+        }
+    }
+
+    /// <summary>
+    /// Llamado cuando entramos/salimos del ReplayState (post-combat).
+    /// </summary>
+    public void OnReplayStateChanged(bool inReplayState)
+    {
+        _navigator.SetReplayMode(inReplayState);
+
+        if (inReplayState)
+        {
+            TolkWrapper.Speak("Combat finished. Press E to continue, R to replay, or Enter for recap.");
+        }
+    }
+
+    /// <summary>
+    /// Triggers the Continue action in ReplayState.
+    /// </summary>
+    public void TriggerReplayContinue()
+    {
+        try
+        {
+            // Call AppState.GetState<ReplayState>().Exit() via reflection
+            var replayStateType = typeof(AppState).Assembly.GetType("TheBazaar.ReplayState");
+            if (replayStateType == null) return;
+
+            var getStateMethod = typeof(AppState).GetMethod("GetState").MakeGenericMethod(replayStateType);
+            var replayState = getStateMethod.Invoke(null, null);
+            if (replayState == null) return;
+
+            var exitMethod = replayStateType.GetMethod("Exit");
+            exitMethod?.Invoke(replayState, null);
+
+            TolkWrapper.Speak("Continuing");
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"TriggerReplayContinue error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Triggers the Replay action in ReplayState.
+    /// </summary>
+    public void TriggerReplayReplay()
+    {
+        try
+        {
+            var replayStateType = typeof(AppState).Assembly.GetType("TheBazaar.ReplayState");
+            if (replayStateType == null) return;
+
+            var getStateMethod = typeof(AppState).GetMethod("GetState").MakeGenericMethod(replayStateType);
+            var replayState = getStateMethod.Invoke(null, null);
+            if (replayState == null) return;
+
+            var replayMethod = replayStateType.GetMethod("Replay");
+            replayMethod?.Invoke(replayState, null);
+
+            TolkWrapper.Speak("Replaying combat");
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"TriggerReplayReplay error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Triggers the Recap action in ReplayState.
+    /// </summary>
+    public void TriggerReplayRecap()
+    {
+        try
+        {
+            var replayStateType = typeof(AppState).Assembly.GetType("TheBazaar.ReplayState");
+            if (replayStateType == null) return;
+
+            var getStateMethod = typeof(AppState).GetMethod("GetState").MakeGenericMethod(replayStateType);
+            var replayState = getStateMethod.Invoke(null, null);
+            if (replayState == null) return;
+
+            var recapMethod = replayStateType.GetMethod("Recap");
+            recapMethod?.Invoke(replayState, null);
+
+            TolkWrapper.Speak("Showing recap");
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"TriggerReplayRecap error: {ex.Message}");
         }
     }
 }

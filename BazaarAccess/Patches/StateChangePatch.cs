@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using BazaarAccess.Accessibility;
 using BazaarAccess.Core;
@@ -20,9 +21,12 @@ public static class StateChangePatch
     private static ERunState _lastState = ERunState.Choice;
     private static bool _initialized = false;
     private static bool _inCombat = false;
+    private static bool _inReplayState = false;
     private static Type _eventsType;
+    private static Type _replayStateType;
 
     public static bool IsInCombat => _inCombat;
+    public static bool IsInReplayState => _inReplayState;
 
     /// <summary>
     /// Inicializa la suscripción a eventos.
@@ -39,6 +43,12 @@ public static class StateChangePatch
             {
                 Plugin.Logger.LogError("StateChangePatch: No se encontró TheBazaar.Events");
                 return;
+            }
+
+            _replayStateType = typeof(AppState).Assembly.GetType("TheBazaar.ReplayState");
+            if (_replayStateType == null)
+            {
+                Plugin.Logger.LogWarning("StateChangePatch: No se encontró TheBazaar.ReplayState");
             }
 
             // === Eventos de cambio de estado ===
@@ -59,8 +69,22 @@ public static class StateChangePatch
             SubscribeToEvent("CardSoldSimEvent", typeof(Action<GameSimEventCardSold>),
                 (Action<GameSimEventCardSold>)OnCardSold);
 
+            // === Eventos de cartas (disposed = removed from selection after buy) ===
+            SubscribeToEvent("CardDisposedSimEvent", typeof(Action<List<Card>>),
+                (Action<List<Card>>)OnCardDisposed);
+
+            // === Evento de selección de carta (fires immediately when card is clicked) ===
+            SubscribeToEventNoParam("CardSelected", OnCardSelected);
+
+            // === Evento de compra/selección de item (AppState event, fires for all items including loot) ===
+            AppState.ItemPurchased += OnItemPurchased;
+
             // === Eventos del tablero ===
             SubscribeToEventNoParam("OnBoardChanged", OnBoardChanged);
+
+            // === Eventos del stash ===
+            SubscribeToEvent("StorageToggled", typeof(Action<bool>),
+                (Action<bool>)OnStorageToggled);
 
             // === Eventos de BoardManager (cartas reveladas) ===
             SubscribeToBoardManagerEvent("ItemCardsRevealed", OnItemCardsRevealed);
@@ -197,10 +221,30 @@ public static class StateChangePatch
             bool stateActuallyChanged = newState != _lastState;
             _lastState = newState;
 
+            // Detectar si entramos/salimos de ReplayState
+            bool wasInReplayState = _inReplayState;
+            _inReplayState = _replayStateType != null &&
+                             _replayStateType.IsInstanceOfType(AppState.CurrentState);
+
+            if (_inReplayState && !wasInReplayState)
+            {
+                Plugin.Logger.LogInfo("Entered ReplayState (post-combat)");
+            }
+            else if (!_inReplayState && wasInReplayState)
+            {
+                Plugin.Logger.LogInfo("Exited ReplayState");
+            }
+
             if (AccessibilityMgr.GetFocusedUI() == null)
             {
                 var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
                 screen?.OnStateChanged(newState, stateActuallyChanged);
+
+                // Notify about ReplayState change
+                if (_inReplayState != wasInReplayState)
+                {
+                    screen?.OnReplayStateChanged(_inReplayState);
+                }
             }
         }
         catch (Exception ex)
@@ -290,19 +334,54 @@ public static class StateChangePatch
     private static void OnCardPurchased(GameSimEventCardPurchased evt)
     {
         Plugin.Logger.LogInfo($"Card purchased: {evt.InstanceId}");
-        TriggerRefresh();
+        TriggerRefreshAndAnnounce();
     }
 
     private static void OnCardSold(GameSimEventCardSold evt)
     {
         Plugin.Logger.LogInfo($"Card sold: {evt.InstanceId}");
-        TriggerRefresh();
+        TriggerRefreshAndAnnounce();
+    }
+
+    private static void OnCardDisposed(List<Card> cards)
+    {
+        Plugin.Logger.LogInfo($"Cards disposed: {cards?.Count ?? 0}");
+        TriggerRefreshAndAnnounce();
+    }
+
+    private static void OnCardSelected()
+    {
+        Plugin.Logger.LogInfo("Card selected - triggering delayed refresh");
+        // Usar coroutine para esperar a que el juego procese la selección
+        Plugin.Instance.StartCoroutine(DelayedRefreshAfterSelection());
+    }
+
+    private static void OnItemPurchased(Card card)
+    {
+        string cardName = card?.ToString() ?? "unknown";
+        Plugin.Logger.LogInfo($"Item purchased/selected: {cardName} - triggering delayed refresh");
+        // Usar coroutine para esperar a que el juego procese la selección
+        Plugin.Instance.StartCoroutine(DelayedRefreshAfterSelection());
+    }
+
+    private static System.Collections.IEnumerator DelayedRefreshAfterSelection()
+    {
+        // Esperar un poco para que el juego procese la selección
+        yield return new UnityEngine.WaitForSeconds(0.3f);
+        TriggerRefreshAndAnnounce();
     }
 
     private static void OnBoardChanged()
     {
         Plugin.Logger.LogInfo("Board changed");
         TriggerRefresh();
+    }
+
+    private static void OnStorageToggled(bool isOpen)
+    {
+        Plugin.Logger.LogInfo($"Storage toggled: {(isOpen ? "open" : "closed")}");
+        var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
+        screen?.OnStorageToggled(isOpen);
     }
 
     #endregion
@@ -355,8 +434,8 @@ public static class StateChangePatch
             ERunState.Encounter => "Choose encounter",
             ERunState.Combat => "Combat",
             ERunState.PVPCombat => "PvP Combat",
-            ERunState.Loot => "Loot",
-            ERunState.LevelUp => "Level up",
+            ERunState.Loot => "Choose your reward",
+            ERunState.LevelUp => "Level up - choose skill",
             ERunState.Pedestal => "Upgrade station",
             ERunState.EndRunVictory => "Victory!",
             ERunState.EndRunDefeat => "Defeat",
