@@ -65,7 +65,7 @@ public class GameplayScreen : IAccessibleScreen
                         currentState == ERunState.Combat ||
                         currentState == ERunState.PVPCombat;
 
-        // En modo combate, solo permitir V (Hero) y F (Enemy)
+        // En modo combate, solo permitir V (Hero), F (Enemy) y Ctrl+flechas para navegar Hero
         if (inCombat)
         {
             switch (key)
@@ -78,15 +78,26 @@ public class GameplayScreen : IAccessibleScreen
                     _navigator.ReadEnemyInfo();
                     break;
 
-                case AccessibleKey.Up:
-                case AccessibleKey.Down:
+                // Ctrl+Up/Down para navegar stats/skills en Hero durante combate
+                case AccessibleKey.DetailUp:
                     if (_navigator.IsInHeroSection)
-                    {
-                        if (key == AccessibleKey.Up)
-                            _navigator.Previous();
-                        else
-                            _navigator.Next();
-                    }
+                        _navigator.HeroNext();
+                    break;
+
+                case AccessibleKey.DetailDown:
+                    if (_navigator.IsInHeroSection)
+                        _navigator.HeroPrevious();
+                    break;
+
+                // Ctrl+Left/Right para cambiar subsección en Hero durante combate
+                case AccessibleKey.DetailLeft:
+                    if (_navigator.IsInHeroSection)
+                        _navigator.HeroPreviousSubsection();
+                    break;
+
+                case AccessibleKey.DetailRight:
+                    if (_navigator.IsInHeroSection)
+                        _navigator.HeroNextSubsection();
                     break;
 
                 case AccessibleKey.Confirm:
@@ -137,24 +148,37 @@ public class GameplayScreen : IAccessibleScreen
                 _navigator.Previous();
                 break;
 
-            // Up/Down para navegación vertical en Hero mode o detallada
+            // Up/Down no hacen nada especial en modo normal
+            // La navegación en Hero se hace con Ctrl+Up/Down
             case AccessibleKey.Up:
-                if (_navigator.IsInHeroSection)
-                    _navigator.Previous();
-                break;
-
             case AccessibleKey.Down:
-                if (_navigator.IsInHeroSection)
-                    _navigator.Next();
+                // No se usan en el gameplay fuera de menús específicos
                 break;
 
-            // Información detallada línea por línea (Ctrl+flecha)
+            // Ctrl+Up/Down: En Hero navega stats/skills, en otras secciones lee detalles
             case AccessibleKey.DetailUp:
-                _navigator.ReadDetailPrevious();
+                if (_navigator.IsInHeroSection)
+                    _navigator.HeroNext();  // Ctrl+Up = siguiente stat/skill
+                else
+                    _navigator.ReadDetailNext();  // Ctrl+Up = siguiente línea (invertido)
                 break;
 
             case AccessibleKey.DetailDown:
-                _navigator.ReadDetailNext();
+                if (_navigator.IsInHeroSection)
+                    _navigator.HeroPrevious();  // Ctrl+Down = anterior stat/skill
+                else
+                    _navigator.ReadDetailPrevious();  // Ctrl+Down = línea anterior (invertido)
+                break;
+
+            // Ctrl+Left/Right: Cambiar subsección en Hero (Stats/Skills)
+            case AccessibleKey.DetailLeft:
+                if (_navigator.IsInHeroSection)
+                    _navigator.HeroPreviousSubsection();
+                break;
+
+            case AccessibleKey.DetailRight:
+                if (_navigator.IsInHeroSection)
+                    _navigator.HeroNextSubsection();
                 break;
 
             // Acción principal
@@ -215,11 +239,13 @@ public class GameplayScreen : IAccessibleScreen
 
     public string GetHelp()
     {
-        return "Left/Right: Navigate. Tab: Switch section. Space: Stash. " +
-               "B: Board. V: Hero. C: Choices. " +
+        return "Left/Right: Navigate items. Tab: Switch section. Space: Stash. " +
+               "B: Board. V: Hero. C: Choices. F: Enemy info. " +
                "Enter: Select/Buy/Sell. E: Exit. R: Refresh. " +
                "Shift+Up/Down: Move to board/stash. Shift+Left/Right: Reorder. " +
-               "Ctrl+Up/Down: Read details. Period/Comma: Messages.";
+               "Ctrl+Up/Down: Read item details or navigate Hero stats. " +
+               "Ctrl+Left/Right: Switch Hero subsection (Stats/Skills). " +
+               "Period/Comma: Messages.";
     }
 
     public void OnFocus()

@@ -344,11 +344,11 @@ Pantalla accesible principal del gameplay que implementa `IAccessibleScreen`. Se
 **Controles generales**:
 - `Tab`: Cambiar sección (Selection → Board → Stash → Skills → Hero)
 - `B`: Ir directamente al Board
-- `V`: Ir directamente a Hero stats
+- `V`: Ir directamente a Hero (Stats/Skills)
 - `C`: Ir directamente a Choices/Selection
 - `F`: Ver información del enemigo/NPC
 - `Flechas izq/der`: Navegar items en la sección actual
-- `Ctrl+Flecha`: Leer información detallada del item línea por línea
+- `Ctrl+Arriba/Abajo`: Leer información detallada del item línea por línea (Arriba=siguiente, Abajo=anterior)
 - `Enter`: Acción contextual (comprar/vender/seleccionar)
 - `E`: Salir del estado actual (Exit)
 - `R`: Refrescar tienda (Reroll)
@@ -359,9 +359,16 @@ Pantalla accesible principal del gameplay que implementa `IAccessibleScreen`. Se
 - `.` (punto): Leer último mensaje
 - `,` (coma): Leer mensaje anterior
 
+**Controles en Hero (V)**:
+- `Ctrl+Arriba`: Siguiente stat o skill
+- `Ctrl+Abajo`: Stat o skill anterior
+- `Ctrl+Derecha`: Cambiar subsección (Stats → Skills)
+- `Ctrl+Izquierda`: Cambiar subsección (Skills → Stats)
+- `Enter`: Leer todos los stats resumidos
+
 **Modo Combate**:
 Durante el combate, la navegación se simplifica:
-- Solo está disponible la sección Hero (V)
+- Solo está disponible la sección Hero (V) con Ctrl+flechas
 - Usa `F` para ver los stats del enemigo (vida, escudo)
 - El combate se anuncia automáticamente al iniciar y terminar
 
@@ -375,7 +382,15 @@ enum NavigationSection {
     Board,      // Items equipados del jugador (10 slots)
     Stash,      // Almacén del jugador
     Skills,     // Habilidades del jugador (4 slots)
-    Hero        // Stats del héroe (Health, Gold, Level, etc.)
+    Hero        // Stats y skills del héroe
+}
+```
+
+**Subsecciones de Hero**:
+```csharp
+enum HeroSubsection {
+    Stats,      // Estadísticas (Health, Gold, Level, etc.)
+    Skills      // Habilidades equipadas del héroe
 }
 ```
 
@@ -521,12 +536,15 @@ El anuncio indica "select to continue" cuando el estado auto-saldrá.
 - ✅ Información del enemigo con tecla F
 - ✅ Reordenamiento de items en el Board (Shift+Izq/Der)
 - ✅ Mover items entre Board y Stash (Shift+Arriba/Abajo)
-- ✅ Lectura detallada línea por línea (Ctrl+Flecha)
+- ✅ Lectura detallada línea por línea (Ctrl+Arriba/Abajo)
 - ✅ Detección de estado del Stash (abierto/cerrado)
 - ✅ Post-combate accesible (ReplayState con E/R/Enter)
 - ✅ Refresh de UI después de seleccionar items (CardSelected, ItemPurchased, CardDisposed)
 - ✅ Detección de auto-exit ("select to continue")
 - ✅ Mejores descripciones de estado (Loot → "Choose your reward", LevelUp → "Level up - choose skill")
+- ✅ Subsecciones de Hero (Stats/Skills) con navegación Ctrl+Izq/Der
+- ✅ Navegación en Hero con Ctrl+Arriba/Abajo (en vez de flechas normales)
+- ✅ Inversión de lectura detallada (Ctrl+Arriba=siguiente, Ctrl+Abajo=anterior)
 
 ## Pendiente por Implementar
 

@@ -233,9 +233,12 @@ public enum AccessibleKey
     // Reordenar items en el tablero
     ReorderLeft,    // Shift+Left - Mover item a la izquierda
     ReorderRight,   // Shift+Right - Mover item a la derecha
-    // Lectura detallada línea por línea
-    DetailUp,       // Ctrl+Up - Línea anterior del tooltip
-    DetailDown,     // Ctrl+Down - Siguiente línea del tooltip
+    // Lectura detallada línea por línea (o navegación Hero stats)
+    DetailUp,       // Ctrl+Up - Siguiente línea/stat
+    DetailDown,     // Ctrl+Down - Línea/stat anterior
+    // Cambiar subsección en Hero (Stats/Skills)
+    DetailLeft,     // Ctrl+Left - Subsección anterior
+    DetailRight,    // Ctrl+Right - Subsección siguiente
     // Buffer de mensajes
     NextMessage,    // Punto - Mensaje más reciente
     PrevMessage     // Coma - Mensaje anterior

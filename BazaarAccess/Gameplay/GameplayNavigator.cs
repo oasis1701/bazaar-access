@@ -23,6 +23,15 @@ public enum NavigationSection
 }
 
 /// <summary>
+/// Subsecciones dentro de Hero.
+/// </summary>
+public enum HeroSubsection
+{
+    Stats,      // Estadísticas del héroe (vida, oro, nivel, etc.)
+    Skills      // Habilidades equipadas del héroe
+}
+
+/// <summary>
 /// Tipos de items navegables (cartas o acciones).
 /// </summary>
 public enum NavItemType
@@ -64,6 +73,8 @@ public class GameplayNavigator
 
     // Stats del héroe para navegación
     private int _heroStatIndex = 0;
+    private HeroSubsection _heroSubsection = HeroSubsection.Stats;
+    private int _heroSkillIndex = 0;
 
     // Modo combate
     private bool _inCombat = false;
@@ -95,6 +106,7 @@ public class GameplayNavigator
 
     public NavigationSection CurrentSection => _currentSection;
     public bool IsInHeroSection => _currentSection == NavigationSection.Hero;
+    public HeroSubsection CurrentHeroSubsection => _heroSubsection;
 
     public ERunState GetCurrentState()
     {
@@ -259,6 +271,8 @@ public class GameplayNavigator
         _currentSection = section;
         _currentIndex = 0;
         _heroStatIndex = 0;
+        _heroSubsection = HeroSubsection.Stats;
+        _heroSkillIndex = 0;
         AnnounceSection();
     }
 
@@ -303,6 +317,160 @@ public class GameplayNavigator
     public void GoToHero()
     {
         GoToSection(NavigationSection.Hero);
+    }
+
+    /// <summary>
+    /// Cambia a la siguiente subsección de Hero (Stats -> Skills -> Stats).
+    /// </summary>
+    public void HeroNextSubsection()
+    {
+        if (_currentSection != NavigationSection.Hero) return;
+
+        if (_heroSubsection == HeroSubsection.Stats)
+        {
+            if (_skillIndices.Count > 0)
+            {
+                _heroSubsection = HeroSubsection.Skills;
+                _heroSkillIndex = 0;
+                AnnounceHeroSubsection();
+            }
+            else
+            {
+                TolkWrapper.Speak("No skills equipped");
+            }
+        }
+        else
+        {
+            _heroSubsection = HeroSubsection.Stats;
+            _heroStatIndex = 0;
+            AnnounceHeroSubsection();
+        }
+    }
+
+    /// <summary>
+    /// Cambia a la subsección anterior de Hero.
+    /// </summary>
+    public void HeroPreviousSubsection()
+    {
+        if (_currentSection != NavigationSection.Hero) return;
+
+        if (_heroSubsection == HeroSubsection.Skills)
+        {
+            _heroSubsection = HeroSubsection.Stats;
+            _heroStatIndex = 0;
+            AnnounceHeroSubsection();
+        }
+        else
+        {
+            if (_skillIndices.Count > 0)
+            {
+                _heroSubsection = HeroSubsection.Skills;
+                _heroSkillIndex = 0;
+                AnnounceHeroSubsection();
+            }
+            else
+            {
+                TolkWrapper.Speak("No skills equipped");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Anuncia la subsección actual de Hero.
+    /// </summary>
+    private void AnnounceHeroSubsection()
+    {
+        if (_heroSubsection == HeroSubsection.Stats)
+        {
+            TolkWrapper.Speak($"Hero stats, {HeroStats.Length} stats");
+            AnnounceHeroStat();
+        }
+        else
+        {
+            TolkWrapper.Speak($"Hero skills, {_skillIndices.Count} skills");
+            AnnounceHeroSkill();
+        }
+    }
+
+    /// <summary>
+    /// Anuncia la skill actual del héroe.
+    /// </summary>
+    private void AnnounceHeroSkill()
+    {
+        if (_heroSkillIndex < 0 || _heroSkillIndex >= _skillIndices.Count)
+        {
+            TolkWrapper.Speak("No skill");
+            return;
+        }
+
+        var bm = GetBoardManager();
+        if (bm?.playerSkillSockets == null) return;
+
+        int idx = _skillIndices[_heroSkillIndex];
+        var card = bm.playerSkillSockets[idx]?.CardController?.CardData;
+        if (card == null)
+        {
+            TolkWrapper.Speak("Empty slot");
+            return;
+        }
+
+        string name = ItemReader.GetCardName(card);
+        TolkWrapper.Speak($"{name}, {_heroSkillIndex + 1} of {_skillIndices.Count}");
+    }
+
+    /// <summary>
+    /// Navega al siguiente stat/skill en Hero (Ctrl+Up).
+    /// </summary>
+    public void HeroNext()
+    {
+        if (_currentSection != NavigationSection.Hero) return;
+
+        if (_heroSubsection == HeroSubsection.Stats)
+        {
+            _heroStatIndex = (_heroStatIndex + 1) % HeroStats.Length;
+            AnnounceHeroStat();
+        }
+        else
+        {
+            if (_skillIndices.Count == 0) return;
+            _heroSkillIndex = (_heroSkillIndex + 1) % _skillIndices.Count;
+            AnnounceHeroSkill();
+        }
+    }
+
+    /// <summary>
+    /// Navega al stat/skill anterior en Hero (Ctrl+Down).
+    /// </summary>
+    public void HeroPrevious()
+    {
+        if (_currentSection != NavigationSection.Hero) return;
+
+        if (_heroSubsection == HeroSubsection.Stats)
+        {
+            _heroStatIndex = (_heroStatIndex - 1 + HeroStats.Length) % HeroStats.Length;
+            AnnounceHeroStat();
+        }
+        else
+        {
+            if (_skillIndices.Count == 0) return;
+            _heroSkillIndex = (_heroSkillIndex - 1 + _skillIndices.Count) % _skillIndices.Count;
+            AnnounceHeroSkill();
+        }
+    }
+
+    /// <summary>
+    /// Obtiene la skill actual del héroe para leer detalles.
+    /// </summary>
+    public Card GetCurrentHeroSkill()
+    {
+        if (_heroSubsection != HeroSubsection.Skills) return null;
+        if (_heroSkillIndex < 0 || _heroSkillIndex >= _skillIndices.Count) return null;
+
+        var bm = GetBoardManager();
+        if (bm?.playerSkillSockets == null) return null;
+
+        int idx = _skillIndices[_heroSkillIndex];
+        return bm.playerSkillSockets[idx]?.CardController?.CardData;
     }
 
     /// <summary>
@@ -476,12 +644,8 @@ public class GameplayNavigator
 
     public void Next()
     {
-        if (_currentSection == NavigationSection.Hero)
-        {
-            _heroStatIndex = (_heroStatIndex + 1) % HeroStats.Length;
-            AnnounceHeroStat();
-            return;
-        }
+        // En Hero, no usar flechas normales - usar Ctrl+Up/Down
+        if (_currentSection == NavigationSection.Hero) return;
 
         int count = GetCurrentSectionCount();
         if (count == 0) return;
@@ -491,12 +655,8 @@ public class GameplayNavigator
 
     public void Previous()
     {
-        if (_currentSection == NavigationSection.Hero)
-        {
-            _heroStatIndex = (_heroStatIndex - 1 + HeroStats.Length) % HeroStats.Length;
-            AnnounceHeroStat();
-            return;
-        }
+        // En Hero, no usar flechas normales - usar Ctrl+Up/Down
+        if (_currentSection == NavigationSection.Hero) return;
 
         int count = GetCurrentSectionCount();
         if (count == 0) return;
@@ -582,8 +742,7 @@ public class GameplayNavigator
     {
         if (_currentSection == NavigationSection.Hero)
         {
-            TolkWrapper.Speak("Hero stats");
-            AnnounceHeroStat();
+            AnnounceHeroSubsection();
             return;
         }
 

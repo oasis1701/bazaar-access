@@ -74,12 +74,16 @@ public class KeyboardNavigator : MonoBehaviour
                 if (shift) return AccessibleKey.MoveToStash;
                 return AccessibleKey.Down;
 
-            // Shift+Izq/Der = reordenar items en el tablero
+            // Shift+Izq/Der = reordenar items, Ctrl+Izq/Der = cambiar subsección Hero
             case KeyCode.LeftArrow:
-                return shift ? AccessibleKey.ReorderLeft : AccessibleKey.Left;
+                if (ctrl) return AccessibleKey.DetailLeft;
+                if (shift) return AccessibleKey.ReorderLeft;
+                return AccessibleKey.Left;
 
             case KeyCode.RightArrow:
-                return shift ? AccessibleKey.ReorderRight : AccessibleKey.Right;
+                if (ctrl) return AccessibleKey.DetailRight;
+                if (shift) return AccessibleKey.ReorderRight;
+                return AccessibleKey.Right;
 
             // Acciones principales
             case KeyCode.Return:
