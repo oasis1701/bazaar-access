@@ -216,5 +216,19 @@ public enum AccessibleKey
     Right,
     Confirm,
     Back,
-    Help
+    Help,
+    Tab,
+    // Navegación de secciones
+    GoToBoard,      // B - Ir al tablero
+    GoToHero,       // V - Ir al héroe
+    GoToChoices,    // C - Ir a choices/selection
+    // Acciones del juego
+    Exit,           // E - Salir del estado actual
+    Reroll,         // R - Reroll/Refresh
+    Space,          // Espacio - Mover item
+    // Lectura detallada
+    ReadDetails,    // Ctrl+Up o Ctrl+Down - Leer info detallada
+    // Buffer de mensajes
+    NextMessage,    // Punto - Mensaje más reciente
+    PrevMessage     // Coma - Mensaje anterior
 }

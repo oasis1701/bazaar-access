@@ -47,6 +47,15 @@
     <Reference Include="BazaarGameShared">
       <HintPath>$(GameManagedPath)\BazaarGameShared.dll</HintPath>
     </Reference>
+    <Reference Include="BazaarGameClient">
+      <HintPath>$(GameManagedPath)\BazaarGameClient.dll</HintPath>
+    </Reference>
+    <Reference Include="BazaarBattleService">
+      <HintPath>$(GameManagedPath)\BazaarBattleService.dll</HintPath>
+    </Reference>
+    <Reference Include="netstandard">
+      <HintPath>$(GameManagedPath)\netstandard.dll</HintPath>
+    </Reference>
   </ItemGroup>
 
   <Target Name="CopyToPlugins" AfterTargets="Build">

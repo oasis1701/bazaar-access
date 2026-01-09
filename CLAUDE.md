@@ -7,9 +7,6 @@ Plugin de BepInEx para hacer el juego "The Bazaar" accesible para personas ciega
 ```
 BazaarAccess/
 ├── Plugin.cs                      # Punto de entrada del plugin
-├── Core/
-│   ├── TolkWrapper.cs            # Wrapper para Tolk (screen reader)
-│   └── KeyboardNavigator.cs      # Manejo de entrada de teclado
 ├── Accessibility/
 │   ├── AccessibleMenu.cs         # Menú navegable con posición
 │   ├── MenuOption.cs             # Opción de menú con delegados
@@ -21,15 +18,29 @@ BazaarAccess/
 ├── Screens/
 │   ├── HeroSelectScreen.cs       # Pantalla de selección de héroe
 │   └── MainMenuScreen.cs         # Pantalla del menú principal
+├── Gameplay/
+│   ├── GameplayScreen.cs         # Pantalla principal del gameplay
+│   ├── GameplayNavigator.cs      # Navegador principal por secciones
+│   ├── BoardNavigator.cs         # Navegación alternativa por zonas
+│   ├── ItemReader.cs             # Lectura de info de cartas/items
+│   └── ActionHelper.cs           # Comprar/vender/mover sin drag-drop
+├── Core/
+│   ├── TolkWrapper.cs            # Wrapper para Tolk (screen reader)
+│   ├── KeyboardNavigator.cs      # Manejo de entrada de teclado
+│   └── MessageBuffer.cs          # Buffer circular de mensajes del juego
 ├── UI/
 │   ├── OptionsUI.cs              # Diálogo de opciones (main + gameplay settings)
-│   └── FightMenuUI.cs            # Menú de pausa durante gameplay
+│   ├── FightMenuUI.cs            # Menú de pausa durante gameplay
+│   ├── ConfirmActionUI.cs        # Popup de confirmación compra/venta
+│   └── GenericPopupUI.cs         # Popups genéricos (tutoriales, mensajes)
 └── Patches/
     ├── ViewControllerPatch.cs    # Detecta cambios de vista
     ├── PopupPatch.cs             # Popups genéricos
     ├── OptionsDialogPatch.cs     # Menú de opciones desde menú principal
     ├── FightMenuPatch.cs         # Menú de pausa y opciones durante gameplay
-    └── HeroChangedPatch.cs       # Cambio de héroe
+    ├── HeroChangedPatch.cs       # Cambio de héroe
+    ├── GameplayPatch.cs          # Detecta entrada al gameplay (BoardManager.OnAwake)
+    └── StateChangePatch.cs       # Suscripción a eventos del juego en tiempo real
 ```
 
 ## Arquitectura: Screens y UIs
@@ -225,3 +236,198 @@ El DLL se copia automáticamente a la carpeta de plugins de BepInEx.
 - El código descompilado del juego está en `bazaar code/` (no incluido en git)
 - Las referencias de Tolk están en `references/` (no incluido en git)
 - Plugin.Instance está disponible para iniciar coroutines desde cualquier lugar
+
+---
+
+## Gameplay - Estructura del Juego
+
+### Flujo de una Partida (Run)
+
+1. **Selección de héroe**: Vanessa, Pygmalien, Dooley, Mak, Stelle
+2. **Días y horas**: Cada día tiene 6 horas
+   - Horas 1-5: Eventos (Merchants, PvE, eventos especiales)
+   - Hora 6: PvP automático contra otro jugador
+3. **Objetivo**: Conseguir 10 victorias PvP
+
+### Tablero del Jugador
+
+- **10 slots de items** (`playerItemSockets[0-9]`)
+- **4 slots de habilidades** (`playerSkillSockets[0-3]`)
+- **Stash/Almacén**: Guardar items sin efecto en batalla
+- **Prestigio**: Vida de la partida (si llega a 0, termina)
+
+### Clases Principales del Juego
+
+```
+BoardManager              - Gestor central del tablero
+├── playerItemSockets[]   - ItemSocketController[10]
+├── playerSkillSockets[]  - SkillSocketController[4]
+├── playerStashAnchor     - Almacén
+└── playerBoardAnchor     - Tablero
+
+ItemController           - Control de items (drag-drop)
+├── CardData             - Datos de la carta (ItemCard)
+├── boardSection         - ESections (Player/Storage/Opponent)
+└── IsDragging           - Estado de arrastre
+
+AppState                 - Comandos del juego
+├── BuyItemCommand()     - Comprar item
+├── SellCardCommand()    - Vender item
+└── MoveCardCommand()    - Mover item entre sockets
+```
+
+### Atributos de Cartas (ECardAttributeType)
+
+- `Strength`, `Toughness`, `Speed` - Stats base
+- `BuyPrice`, `SellPrice` - Precios
+- `Ammo`, `Haste`, `Cooldown` - Mecánicas
+- `Heal`, `Poison`, `Burn`, `Slow` - Efectos
+
+### Atributos del Jugador (EPlayerAttributeType)
+
+- `Health`, `Shield` - Vida
+- `Gold`, `Income` - Economía
+- `Level`, `Experience`, `Prestige` - Progreso
+
+### Sistema de Compra/Venta (Sin Drag-Drop)
+
+```csharp
+// Comprar item del merchant
+AppState.CurrentState.BuyItemCommand(itemCard, EInventorySection.Hand);
+
+// Vender item
+AppState.CurrentState.SellCardCommand(itemCard);
+
+// Mover item entre Hand y Stash
+AppState.CurrentState.MoveCardCommand(itemCard, targetSockets, section);
+```
+
+### Secciones del Inventario
+
+```csharp
+enum EInventorySection {
+    Hand,      // Items equipados (tablero activo)
+    Stash,     // Almacén (sin efecto en batalla)
+    Opponent   // Items del merchant
+}
+
+enum EContainerSocketId {
+    Socket_1 = 0, Socket_2 = 1, ... Socket_10 = 9
+}
+```
+
+### Localización
+
+- `LocalizationService`: SQLite con traducciones
+- Idiomas: en-US, de-DE, pt-BR, zh-CN, ko-KR
+- `TCardLocalization`: Nombres y descripciones localizados
+
+---
+
+## Gameplay Implementado
+
+### GameplayScreen
+
+Pantalla accesible principal del gameplay que implementa `IAccessibleScreen`. Se activa automáticamente cuando `BoardManager.OnAwake` se ejecuta (entrada al gameplay).
+
+**Controles**:
+- `Tab`: Cambiar sección (Selection → Board → Stash → Skills → Hero)
+- `B`: Ir directamente al Board
+- `V`: Ir directamente a Hero stats
+- `C`: Ir directamente a Choices/Selection
+- `Flechas izq/der`: Navegar items en la sección actual
+- `Ctrl+Flecha`: Leer información detallada del item
+- `Enter`: Acción contextual (comprar/vender/seleccionar)
+- `E`: Salir del estado actual (Exit)
+- `R`: Refrescar tienda (Reroll)
+- `Espacio`: Mover item entre Board y Stash
+- `.` (punto): Leer último mensaje
+- `,` (coma): Leer mensaje anterior
+
+### GameplayNavigator
+
+Navegador principal con 5 secciones:
+
+```csharp
+enum NavigationSection {
+    Selection,  // Items/skills/encounters del SelectionSet + Exit/Reroll
+    Board,      // Items equipados del jugador (10 slots)
+    Stash,      // Almacén del jugador
+    Skills,     // Habilidades del jugador (4 slots)
+    Hero        // Stats del héroe (Health, Gold, Level, etc.)
+}
+```
+
+**NavItem**: Puede ser una carta o una acción (Exit, Reroll):
+```csharp
+enum NavItemType { Card, Exit, Reroll }
+```
+
+### ItemReader
+
+Lee información localizada de las cartas:
+- `GetCardName()`: Nombre traducido
+- `GetTierName()`: Bronze/Silver/Gold/Diamond/Legendary
+- `GetBuyPrice()`, `GetSellPrice()`: Precios
+- `GetDetailedDescription()`: Info completa con stats y efectos
+- `GetEncounterInfo()`: Nombre + tipo de encuentro
+- `GetFlavorText()`: Texto narrativo
+
+### ActionHelper
+
+Ejecuta acciones del juego sin drag-drop:
+- `BuyItem(card, toStash)`: Compra item al Board o Stash
+- `SellItem(card)`: Vende item
+- `MoveItem(card, toStash)`: Mueve entre Board y Stash
+- `SelectSkill(card)`: Selecciona habilidad
+- `SelectEncounter(card)`: Selecciona encuentro
+
+### StateChangePatch
+
+Suscripción a eventos del juego via reflexión (clase `Events` es internal):
+- `StateChanged`: Anuncia cambios de estado (Shop, Combat, Loot, etc.)
+- `CardPurchasedSimEvent`: Refresca pantalla al comprar
+- `CardSoldSimEvent`: Refresca pantalla al vender
+- `CardDealtSimEvent`: Refresca cuando aparecen nuevas cartas
+
+### ConfirmActionUI
+
+UI de confirmación para compra/venta:
+- Pregunta "Buy X for Y gold?" o "Sell X for Y gold?"
+- Navega entre Confirm/Cancel con flechas
+- Enter confirma, Escape cancela
+
+### MessageBuffer
+
+Buffer circular de hasta 50 mensajes del juego:
+- `.` (punto): Lee el mensaje más reciente
+- `,` (coma): Lee mensajes anteriores
+- Los popups del juego añaden su contenido al buffer
+
+### Estados del Juego (ERunState)
+
+```
+Choice      → "Shop" (tienda)
+Encounter   → "Choose encounter"
+Combat      → "Combat" (PvE)
+PVPCombat   → "PvP Combat"
+Loot        → "Loot" (recompensas)
+LevelUp     → "Level up"
+Pedestal    → "Upgrade station"
+EndRunVictory → "Victory!"
+EndRunDefeat  → "Defeat"
+```
+
+---
+
+## Pendiente por Implementar
+
+### Anuncios de Eventos
+- Subida de nivel
+- Victoria/Derrota en PvP
+- Cambios de prestigio
+
+### Mejoras de Navegación
+- Información del oponente durante combate
+- Preview de sinergia de items
+- Acceso rápido a información de cooldowns en batalla

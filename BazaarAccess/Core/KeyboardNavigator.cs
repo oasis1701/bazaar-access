@@ -43,7 +43,7 @@ public class KeyboardNavigator : MonoBehaviour
         Event e = Event.current;
         if (e == null || e.type != EventType.KeyDown) return;
 
-        AccessibleKey key = MapKey(e.keyCode);
+        AccessibleKey key = MapKey(e);
         if (key == AccessibleKey.None) return;
 
         ClearUISelection();
@@ -53,16 +53,22 @@ public class KeyboardNavigator : MonoBehaviour
 
     /// <summary>
     /// Mapea KeyCode de Unity a AccessibleKey.
+    /// Controles simples y fieles al juego original.
     /// </summary>
-    private AccessibleKey MapKey(KeyCode keyCode)
+    private AccessibleKey MapKey(Event e)
     {
+        // Usar Event.current.control para detectar Ctrl (más confiable en OnGUI)
+        bool ctrl = e.control;
+        KeyCode keyCode = e.keyCode;
+
         switch (keyCode)
         {
+            // Navegación con Ctrl = lectura detallada
             case KeyCode.UpArrow:
-                return AccessibleKey.Up;
+                return ctrl ? AccessibleKey.ReadDetails : AccessibleKey.Up;
 
             case KeyCode.DownArrow:
-                return AccessibleKey.Down;
+                return ctrl ? AccessibleKey.ReadDetails : AccessibleKey.Down;
 
             case KeyCode.LeftArrow:
                 return AccessibleKey.Left;
@@ -70,16 +76,47 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.RightArrow:
                 return AccessibleKey.Right;
 
+            // Acciones principales
             case KeyCode.Return:
             case KeyCode.KeypadEnter:
                 return AccessibleKey.Confirm;
 
-            case KeyCode.Escape:
             case KeyCode.Backspace:
+            case KeyCode.Escape:
                 return AccessibleKey.Back;
+
+            case KeyCode.Tab:
+                return AccessibleKey.Tab;
 
             case KeyCode.F1:
                 return AccessibleKey.Help;
+
+            // Navegación de secciones
+            case KeyCode.B:
+                return AccessibleKey.GoToBoard;
+
+            case KeyCode.V:
+                return AccessibleKey.GoToHero;
+
+            case KeyCode.C:
+                return AccessibleKey.GoToChoices;
+
+            // Acciones del juego
+            case KeyCode.E:
+                return AccessibleKey.Exit;
+
+            case KeyCode.R:
+                return AccessibleKey.Reroll;
+
+            case KeyCode.Space:
+                return AccessibleKey.Space;
+
+            // Buffer de mensajes
+            case KeyCode.Period:
+                return AccessibleKey.NextMessage;
+
+            case KeyCode.Comma:
+                return AccessibleKey.PrevMessage;
 
             default:
                 return AccessibleKey.None;

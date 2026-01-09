@@ -1,0 +1,244 @@
+using BazaarAccess.Core;
+using BazaarGameClient.Domain.Models.Cards;
+using BazaarGameShared.Domain.Core.Types;
+using TheBazaar;
+
+namespace BazaarAccess.Gameplay;
+
+/// <summary>
+/// Helper para ejecutar acciones del gameplay sin drag-drop.
+/// </summary>
+public static class ActionHelper
+{
+    /// <summary>
+    /// Compra un item del merchant.
+    /// </summary>
+    /// <param name="card">El item a comprar</param>
+    /// <param name="toStash">True para comprar al stash, false para comprar al tablero</param>
+    /// <returns>True si la compra fue exitosa</returns>
+    public static bool BuyItem(ItemCard card, bool toStash = false)
+    {
+        if (card == null)
+        {
+            Plugin.Logger.LogWarning("BuyItem: card is null");
+            return false;
+        }
+
+        var state = AppState.CurrentState;
+        if (state == null)
+        {
+            Plugin.Logger.LogWarning("BuyItem: AppState.CurrentState is null");
+            TolkWrapper.Speak("Cannot buy now");
+            return false;
+        }
+
+        try
+        {
+            var section = toStash ? EInventorySection.Stash : EInventorySection.Hand;
+            state.BuyItemCommand(card, section);
+
+            string name = ItemReader.GetCardName(card);
+            int price = ItemReader.GetBuyPrice(card);
+            TolkWrapper.Speak($"Bought {name} for {price} gold");
+
+            Plugin.Logger.LogInfo($"BuyItem: {name} to {section}");
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"BuyItem failed: {ex.Message}");
+            TolkWrapper.Speak("Purchase failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Vende un item del jugador.
+    /// </summary>
+    /// <param name="card">El item a vender</param>
+    /// <returns>True si la venta fue exitosa</returns>
+    public static bool SellItem(ItemCard card)
+    {
+        if (card == null)
+        {
+            Plugin.Logger.LogWarning("SellItem: card is null");
+            return false;
+        }
+
+        var state = AppState.CurrentState;
+        if (state == null)
+        {
+            Plugin.Logger.LogWarning("SellItem: AppState.CurrentState is null");
+            TolkWrapper.Speak("Cannot sell now");
+            return false;
+        }
+
+        try
+        {
+            string name = ItemReader.GetCardName(card);
+            int price = ItemReader.GetSellPrice(card);
+
+            state.SellCardCommand(card);
+
+            TolkWrapper.Speak($"Sold {name} for {price} gold");
+
+            Plugin.Logger.LogInfo($"SellItem: {name} for {price}");
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"SellItem failed: {ex.Message}");
+            TolkWrapper.Speak("Sale failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Mueve un item entre Hand y Stash.
+    /// </summary>
+    /// <param name="card">El item a mover</param>
+    /// <param name="toStash">True para mover al stash, false para mover al tablero</param>
+    /// <returns>True si el movimiento fue exitoso</returns>
+    public static bool MoveItem(ItemCard card, bool toStash)
+    {
+        if (card == null)
+        {
+            Plugin.Logger.LogWarning("MoveItem: card is null");
+            return false;
+        }
+
+        var state = AppState.CurrentState;
+        if (state == null)
+        {
+            Plugin.Logger.LogWarning("MoveItem: AppState.CurrentState is null");
+            TolkWrapper.Speak("Cannot move now");
+            return false;
+        }
+
+        try
+        {
+            var section = toStash ? EInventorySection.Stash : EInventorySection.Hand;
+
+            // Para mover, necesitamos especificar los sockets destino
+            // Por ahora usamos null para que el juego elija automáticamente
+            var desiredSockets = new System.Collections.Generic.List<EContainerSocketId>();
+            for (int i = 0; i < (int)card.Size; i++)
+            {
+                desiredSockets.Add((EContainerSocketId)i);
+            }
+
+            state.MoveCardCommand(card, desiredSockets, section);
+
+            string name = ItemReader.GetCardName(card);
+            string destination = toStash ? "Stash" : "Board";
+            TolkWrapper.Speak($"Moved {name} to {destination}");
+
+            Plugin.Logger.LogInfo($"MoveItem: {name} to {section}");
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"MoveItem failed: {ex.Message}");
+            TolkWrapper.Speak("Move failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Verifica si se puede comprar el item actual.
+    /// </summary>
+    public static bool CanBuy(Card card)
+    {
+        if (card == null) return false;
+
+        // Verificar si tenemos suficiente oro
+        // TODO: Obtener el oro del jugador y comparar con el precio
+        return true;
+    }
+
+    /// <summary>
+    /// Verifica si se puede vender el item actual.
+    /// </summary>
+    public static bool CanSell(Card card)
+    {
+        if (card == null) return false;
+
+        // Los items del jugador se pueden vender
+        // TODO: Verificar si el item tiene la etiqueta "Unsellable"
+        return true;
+    }
+
+    /// <summary>
+    /// Selecciona una skill del SelectionSet.
+    /// </summary>
+    public static bool SelectSkill(SkillCard card)
+    {
+        if (card == null)
+        {
+            Plugin.Logger.LogWarning("SelectSkill: card is null");
+            return false;
+        }
+
+        var state = AppState.CurrentState;
+        if (state == null)
+        {
+            Plugin.Logger.LogWarning("SelectSkill: AppState.CurrentState is null");
+            TolkWrapper.Speak("Cannot select now");
+            return false;
+        }
+
+        try
+        {
+            state.SelectSkillCommand(card);
+
+            string name = ItemReader.GetCardName(card);
+            TolkWrapper.Speak($"Selected {name}");
+
+            Plugin.Logger.LogInfo($"SelectSkill: {name}");
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"SelectSkill failed: {ex.Message}");
+            TolkWrapper.Speak("Selection failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Selecciona un encuentro del SelectionSet.
+    /// </summary>
+    public static bool SelectEncounter(Card card)
+    {
+        if (card == null)
+        {
+            Plugin.Logger.LogWarning("SelectEncounter: card is null");
+            return false;
+        }
+
+        var state = AppState.CurrentState;
+        if (state == null)
+        {
+            Plugin.Logger.LogWarning("SelectEncounter: AppState.CurrentState is null");
+            TolkWrapper.Speak("Cannot select now");
+            return false;
+        }
+
+        try
+        {
+            state.SelectEncounterCommand(card.InstanceId);
+
+            string name = ItemReader.GetCardName(card);
+            TolkWrapper.Speak($"Selected {name}");
+
+            Plugin.Logger.LogInfo($"SelectEncounter: {card.InstanceId}");
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"SelectEncounter failed: {ex.Message}");
+            TolkWrapper.Speak("Selection failed");
+            return false;
+        }
+    }
+}
