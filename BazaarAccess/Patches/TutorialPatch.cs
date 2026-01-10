@@ -15,6 +15,41 @@ namespace BazaarAccess.Patches;
 public static class TutorialPatch
 {
     private static TutorialUI _currentTutorialUI;
+    private static string _lastAnnouncedText = "";
+    private static float _lastAnnouncedTime = 0f;
+    private const float DEDUP_WINDOW = 2f; // seconds to consider text as duplicate
+
+    /// <summary>
+    /// Closes the current tutorial UI if one exists.
+    /// </summary>
+    private static void CloseCurrentTutorialUI()
+    {
+        if (_currentTutorialUI != null)
+        {
+            AccessibilityMgr.HideUI(_currentTutorialUI);
+            _currentTutorialUI = null;
+        }
+    }
+
+    /// <summary>
+    /// Checks if text was recently announced (duplicate detection).
+    /// </summary>
+    private static bool IsRecentDuplicate(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return true;
+
+        float currentTime = Time.realtimeSinceStartup;
+        bool isDuplicate = text == _lastAnnouncedText &&
+                          (currentTime - _lastAnnouncedTime) < DEDUP_WINDOW;
+
+        if (!isDuplicate)
+        {
+            _lastAnnouncedText = text;
+            _lastAnnouncedTime = currentTime;
+        }
+
+        return isDuplicate;
+    }
 
     /// <summary>
     /// Patch para SequenceDialogController.ShowDialog - lee el texto del tutorial.
@@ -48,9 +83,19 @@ public static class TutorialPatch
                     // Limpiar HTML tags
                     text = CleanText(text);
 
+                    // Skip if duplicate text within dedup window
+                    if (IsRecentDuplicate(text))
+                    {
+                        Plugin.Logger.LogInfo($"Tutorial dialog (skipped duplicate): {text}");
+                        return;
+                    }
+
                     Plugin.Logger.LogInfo($"Tutorial dialog: {text}");
 
-                    // Crear UI de tutorial si no hay una UI activa
+                    // Close previous tutorial UI before creating new one
+                    CloseCurrentTutorialUI();
+
+                    // Crear UI de tutorial
                     var monoBehaviour = __instance as MonoBehaviour;
                     if (monoBehaviour != null)
                     {
@@ -88,11 +133,7 @@ public static class TutorialPatch
         {
             try
             {
-                if (_currentTutorialUI != null)
-                {
-                    AccessibilityMgr.HideUI(_currentTutorialUI);
-                    _currentTutorialUI = null;
-                }
+                CloseCurrentTutorialUI();
             }
             catch (System.Exception ex)
             {
@@ -150,7 +191,17 @@ public static class TutorialPatch
                     fullText += ". " + body;
                 }
 
+                // Skip if duplicate text within dedup window
+                if (IsRecentDuplicate(fullText))
+                {
+                    Plugin.Logger.LogInfo($"FullScreen tutorial (skipped duplicate): {fullText}");
+                    return;
+                }
+
                 Plugin.Logger.LogInfo($"FullScreen tutorial: {fullText}");
+
+                // Close previous tutorial UI before creating new one
+                CloseCurrentTutorialUI();
 
                 var monoBehaviour = __instance as MonoBehaviour;
                 if (monoBehaviour != null)
@@ -194,11 +245,7 @@ public static class TutorialPatch
         {
             try
             {
-                if (_currentTutorialUI != null)
-                {
-                    AccessibilityMgr.HideUI(_currentTutorialUI);
-                    _currentTutorialUI = null;
-                }
+                CloseCurrentTutorialUI();
             }
             catch (System.Exception ex)
             {

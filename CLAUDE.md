@@ -378,6 +378,7 @@ Pantalla accesible principal del gameplay que implementa `IAccessibleScreen`. Se
 - `.` (punto): Leer último mensaje
 - `,` (coma): Leer mensaje anterior
 - `I`: Ver propiedades/keywords del item (tags, descripciones)
+- `Shift+U`: Upgradear item en el Pedestal
 
 **Controles en Hero (V)**:
 - `Ctrl+Arriba`: Siguiente stat o skill
@@ -454,6 +455,8 @@ Ejecuta acciones del juego sin drag-drop:
 - `MoveItem(card, toStash)`: Mueve entre Board y Stash
 - `SelectSkill(card)`: Selecciona habilidad
 - `SelectEncounter(card)`: Selecciona encuentro
+- `UpgradeItem(card)`: Upgradea item en el Pedestal (solo en estado Pedestal)
+- `ReorderItem(card, slot, direction)`: Reordena items en el Board
 
 ### StateChangePatch
 
@@ -566,6 +569,9 @@ El anuncio indica "select to continue" cuando el estado auto-saldrá.
 - `StateExited`: Salida de un estado
 - `EncounterEntered`: Entrada a un encuentro
 
+### GameServiceManager Events
+- `OnCombatPvEFinish`: Resultado del combate (Win/Lose) - funciona para PvE y PvP
+
 ### BoardManager Events
 - `ItemCardsRevealed`: Items revelados
 - `SkillCardsRevealed`: Skills reveladas
@@ -652,6 +658,11 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
 - ✅ **Username validation display**: Shows (available) or (not available) status
 - ✅ **Validation summary in Create Account**: Shows "Requirements: X of 5. Missing: ..." for account creation
 - ✅ **All Login UIs inherit from LoginBaseUI**: Consistent initialization and BazaarButton handling
+- ✅ **Tutorial deduplication**: Fixed repeated tutorial messages with 2-second dedup window
+- ✅ **Tutorial UI cleanup**: Closes previous TutorialUI before creating new one (no stack buildup)
+- ✅ **Shift+U Upgrade**: Upgrade items at Pedestal stations (Bronze→Silver→Gold→Diamond)
+- ✅ **PvE combat results**: "Victory!" and "Defeat!" now announced for PvE fights (not just PvP)
+- ✅ **Combat result events**: Uses GameServiceManager.OnCombatPvEFinish for reliable win/lose detection
 
 ---
 

@@ -167,6 +167,11 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.I:
                 return AccessibleKey.Info;
 
+            // Upgrade item
+            case KeyCode.U:
+                if (shift) return AccessibleKey.Upgrade;
+                return AccessibleKey.None;
+
             default:
                 return AccessibleKey.None;
         }

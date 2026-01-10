@@ -1,4 +1,5 @@
 using BazaarAccess.Core;
+using BazaarAccess.Patches;
 using BazaarGameClient.Domain.Cards;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Core.Types;
@@ -341,5 +342,100 @@ public static class ActionHelper
             TolkWrapper.Speak("Move failed");
             return false;
         }
+    }
+
+    /// <summary>
+    /// Upgrades an item at the pedestal.
+    /// Only works when in Pedestal state.
+    /// </summary>
+    /// <param name="card">The item to upgrade</param>
+    /// <returns>True if the upgrade was initiated</returns>
+    public static bool UpgradeItem(Card card)
+    {
+        if (card == null)
+        {
+            Plugin.Logger.LogWarning("UpgradeItem: card is null");
+            return false;
+        }
+
+        // Check if we're in Pedestal state
+        var currentState = StateChangePatch.GetCurrentRunState();
+        if (currentState != ERunState.Pedestal)
+        {
+            TolkWrapper.Speak("Can only upgrade at a pedestal");
+            return false;
+        }
+
+        var state = AppState.CurrentState;
+        if (state == null)
+        {
+            Plugin.Logger.LogWarning("UpgradeItem: AppState.CurrentState is null");
+            TolkWrapper.Speak("Cannot upgrade now");
+            return false;
+        }
+
+        // Check if CommitToPedestal operation is allowed
+        if (!state.CanHandleOperation(StateOps.CommitToPedestal))
+        {
+            TolkWrapper.Speak("Cannot upgrade this item");
+            return false;
+        }
+
+        // Check if the card can be upgraded (not already at max tier)
+        if (card.Tier == ETier.Diamond || card.Tier == ETier.Legendary)
+        {
+            TolkWrapper.Speak("Item is already at maximum tier");
+            return false;
+        }
+
+        try
+        {
+            string name = ItemReader.GetCardName(card);
+            string currentTier = ItemReader.GetTierName(card);
+            string nextTier = GetNextTierName(card.Tier);
+
+            state.CommitToPedestalCommand(card.InstanceId);
+
+            TolkWrapper.Speak($"Upgrading {name} from {currentTier} to {nextTier}");
+
+            Plugin.Logger.LogInfo($"UpgradeItem: {name} ({currentTier} -> {nextTier})");
+            return true;
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"UpgradeItem failed: {ex.Message}");
+            TolkWrapper.Speak("Upgrade failed");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets the name of the next tier.
+    /// </summary>
+    private static string GetNextTierName(ETier currentTier)
+    {
+        switch (currentTier)
+        {
+            case ETier.Bronze: return "Silver";
+            case ETier.Silver: return "Gold";
+            case ETier.Gold: return "Diamond";
+            default: return "max";
+        }
+    }
+
+    /// <summary>
+    /// Checks if the current state allows upgrading items.
+    /// </summary>
+    public static bool CanUpgrade()
+    {
+        var currentState = StateChangePatch.GetCurrentRunState();
+        if (currentState != ERunState.Pedestal)
+            return false;
+
+        var state = AppState.CurrentState;
+        if (state == null)
+            return false;
+
+        return state.CanHandleOperation(StateOps.CommitToPedestal);
     }
 }

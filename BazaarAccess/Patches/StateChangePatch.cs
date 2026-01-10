@@ -4,6 +4,7 @@ using System.Reflection;
 using BazaarAccess.Accessibility;
 using BazaarAccess.Core;
 using BazaarAccess.Gameplay;
+using BazaarBattleService.Models;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Runs;
 using BazaarGameShared.Domain.Core.Types;
@@ -29,6 +30,9 @@ public static class StateChangePatch
     private static bool _inReplayState = false;
     private static Type _eventsType;
     private static Type _replayStateType;
+
+    // Track if we already announced the combat result to avoid duplicates
+    private static bool _combatResultAnnounced = false;
 
     // Throttle to avoid announcement spam
     private static Coroutine _announceCoroutine = null;
@@ -75,8 +79,13 @@ public static class StateChangePatch
             SubscribeToEventNoParam("CombatEnded", OnCombatEnded);
 
             // === Victory/defeat events ===
+            // OnCombatPvEFinish fires for ALL combats (PvE and PvP) with the result
+            SubscribeToGameServiceManagerEvent();
+
+            // VictoryCountChanged only fires for PvP wins (victory counter)
             SubscribeToEvent("VictoryCountChanged", typeof(Action<uint>),
                 (Action<uint>)OnVictoryCountChanged);
+            // PrestigeChanged fires when we lose prestige (defeat)
             SubscribeToEvent("PlayerPrestigeChangedSimEvent", typeof(Action<GameSimEventPlayerPrestigeChanged>),
                 (Action<GameSimEventPlayerPrestigeChanged>)OnPrestigeChanged);
 
@@ -266,6 +275,50 @@ public static class StateChangePatch
         }
     }
 
+    private static void SubscribeToGameServiceManagerEvent()
+    {
+        try
+        {
+            var gsm = Singleton<GameServiceManager>.Instance;
+            if (gsm != null)
+            {
+                gsm.OnCombatPvEFinish += OnCombatResult;
+                Plugin.Logger.LogInfo("StateChangePatch: Subscribed to GameServiceManager.OnCombatPvEFinish");
+            }
+            else
+            {
+                // GameServiceManager may not be ready yet, try with coroutine
+                Plugin.Instance.StartCoroutine(DelayedSubscribeToGameServiceManager());
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.Logger.LogWarning($"StateChangePatch: Error subscribing to GameServiceManager: {ex.Message}");
+        }
+    }
+
+    private static System.Collections.IEnumerator DelayedSubscribeToGameServiceManager()
+    {
+        yield return new WaitForSeconds(1f);
+        try
+        {
+            var gsm = Singleton<GameServiceManager>.Instance;
+            if (gsm != null)
+            {
+                gsm.OnCombatPvEFinish += OnCombatResult;
+                Plugin.Logger.LogInfo("StateChangePatch: Subscribed to GameServiceManager.OnCombatPvEFinish (delayed)");
+            }
+            else
+            {
+                Plugin.Logger.LogWarning("StateChangePatch: GameServiceManager still not available");
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.Logger.LogWarning($"StateChangePatch: Error in delayed subscription: {ex.Message}");
+        }
+    }
+
     #endregion
 
     #region Event Handlers
@@ -383,6 +436,7 @@ public static class StateChangePatch
     {
         Plugin.Logger.LogInfo("CombatStarted");
         _inCombat = true;
+        _combatResultAnnounced = false; // Reset for the new combat
 
         // Start combat narration
         CombatDescriber.StartDescribing();
@@ -402,21 +456,55 @@ public static class StateChangePatch
         // Stop combat narration
         CombatDescriber.StopDescribing();
 
+        // Reset the combat result flag for the next combat
+        _combatResultAnnounced = false;
+
         var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
         screen?.OnCombatStateChanged(false);
     }
 
     /// <summary>
-    /// When victory count increases (we won the combat).
+    /// When combat finishes with a result (fires for BOTH PvE and PvP).
+    /// This is the main source of victory/defeat announcements.
+    /// </summary>
+    private static void OnCombatResult(BazaarMatchHistory.EVictoryCondition result)
+    {
+        Plugin.Logger.LogInfo($"OnCombatResult: {result}");
+
+        // Avoid duplicate announcements
+        if (_combatResultAnnounced)
+        {
+            Plugin.Logger.LogInfo("OnCombatResult: Already announced, skipping");
+            return;
+        }
+        _combatResultAnnounced = true;
+
+        switch (result)
+        {
+            case BazaarMatchHistory.EVictoryCondition.Win:
+                TolkWrapper.Speak("Victory!");
+                break;
+
+            case BazaarMatchHistory.EVictoryCondition.Lose:
+                TolkWrapper.Speak("Defeat!");
+                break;
+        }
+    }
+
+    /// <summary>
+    /// When victory count increases (we won PvP combat).
+    /// Only fires for PvP, announces the win count as additional info.
     /// </summary>
     private static void OnVictoryCountChanged(uint newVictoryCount)
     {
         Plugin.Logger.LogInfo($"VictoryCountChanged: {newVictoryCount}");
-        TolkWrapper.Speak($"Victory! {newVictoryCount} wins");
+        // Only announce the count, OnCombatResult already said "Victory!"
+        TolkWrapper.Speak($"{newVictoryCount} wins");
     }
 
     /// <summary>
     /// When prestige changes (if it decreases, we lost).
+    /// Announces prestige lost as additional info (OnCombatResult handles "Defeat!").
     /// </summary>
     private static void OnPrestigeChanged(GameSimEventPlayerPrestigeChanged evt)
     {
@@ -424,8 +512,9 @@ public static class StateChangePatch
         if (evt.Delta < 0)
         {
             // Lost prestige = lost the combat
+            // Only announce the prestige info, OnCombatResult already said "Defeat!"
             int currentPrestige = Data.Run?.Player?.GetAttributeValue(EPlayerAttributeType.Prestige) ?? 0;
-            TolkWrapper.Speak($"Defeat! Lost {-evt.Delta} prestige. {currentPrestige} remaining");
+            TolkWrapper.Speak($"Lost {-evt.Delta} prestige. {currentPrestige} remaining");
         }
     }
 

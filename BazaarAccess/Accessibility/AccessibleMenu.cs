@@ -244,5 +244,7 @@ public enum AccessibleKey
     NextMessage,    // Period - Most recent message
     PrevMessage,    // Comma - Previous message
     // Additional information
-    Info            // I - Property/keyword info for the item
+    Info,           // I - Property/keyword info for the item
+    // Upgrade
+    Upgrade         // Shift+U - Upgrade item at pedestal
 }

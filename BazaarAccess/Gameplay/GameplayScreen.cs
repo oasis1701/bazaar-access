@@ -327,6 +327,37 @@ public class GameplayScreen : IAccessibleScreen
             case AccessibleKey.Info:
                 ReadPropertyInfo();
                 break;
+
+            // Shift+U - Upgrade item at pedestal
+            case AccessibleKey.Upgrade:
+                HandleUpgrade();
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Handles the upgrade action (Shift+U).
+    /// </summary>
+    private void HandleUpgrade()
+    {
+        // Only works when viewing board or stash items
+        if (!_navigator.IsInPlayerSection())
+        {
+            TolkWrapper.Speak("Select an item on your board or stash to upgrade");
+            return;
+        }
+
+        var card = _navigator.GetCurrentCard();
+        if (card == null)
+        {
+            TolkWrapper.Speak("No item selected");
+            return;
+        }
+
+        if (ActionHelper.UpgradeItem(card))
+        {
+            // Refresh after successful upgrade
+            Plugin.Instance.StartCoroutine(DelayedRefreshAndAnnounce());
         }
     }
 
@@ -362,7 +393,7 @@ public class GameplayScreen : IAccessibleScreen
     {
         return "Left/Right: Navigate items. Tab: Switch section. Space: Stash. " +
                "B: Board. V: Hero. C: Choices. F: Enemy info. I: Property info. " +
-               "Enter: Select/Buy/Sell. E: Exit. R: Refresh. " +
+               "Enter: Select/Buy/Sell. E: Exit. R: Refresh. Shift+U: Upgrade. " +
                "Shift+Up/Down: Move to board/stash. Shift+Left/Right: Reorder. " +
                "Ctrl+Up/Down: Read item details or navigate Hero stats. " +
                "Ctrl+Left/Right: Switch Hero subsection (Stats/Skills). " +
