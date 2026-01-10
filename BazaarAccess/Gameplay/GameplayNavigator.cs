@@ -104,6 +104,7 @@ public class GameplayNavigator
         EPlayerAttributeType.Gold,
         EPlayerAttributeType.Level,
         EPlayerAttributeType.Experience,
+        EPlayerAttributeType.Prestige,
         EPlayerAttributeType.Shield,
         EPlayerAttributeType.Poison,
         EPlayerAttributeType.Burn,
@@ -971,20 +972,46 @@ public class GameplayNavigator
 
         var runState = GetCurrentState();
 
-        // Anuncio ultra-simplificado: solo el estado
-        string announcement = runState switch
+        // Anuncio simplificado con información relevante
+        string announcement;
+        switch (runState)
         {
-            ERunState.Choice => "Shop",
-            ERunState.Encounter => "Encounters",
-            ERunState.Loot => "Loot",
-            ERunState.LevelUp => "Level up",
-            ERunState.Pedestal => "Upgrade",
-            ERunState.Combat => "Combat",
-            ERunState.PVPCombat => "PvP",
-            ERunState.EndRunVictory => "Victory",
-            ERunState.EndRunDefeat => "Defeat",
-            _ => GetStateDescription()
-        };
+            case ERunState.Choice:
+                announcement = "Shop";
+                break;
+            case ERunState.Encounter:
+                announcement = "Encounters";
+                break;
+            case ERunState.Loot:
+                announcement = "Loot";
+                break;
+            case ERunState.LevelUp:
+                // Para level up, incluir el nivel actual y número de skills disponibles
+                int level = Data.Run?.Player?.GetAttributeValue(EPlayerAttributeType.Level) ?? 0;
+                int skillCount = GetSelectionCardCount();
+                announcement = skillCount > 0
+                    ? $"Level up to {level}! Choose a skill, {skillCount} available"
+                    : $"Level up to {level}!";
+                break;
+            case ERunState.Pedestal:
+                announcement = "Upgrade";
+                break;
+            case ERunState.Combat:
+                announcement = "Combat";
+                break;
+            case ERunState.PVPCombat:
+                announcement = "PvP";
+                break;
+            case ERunState.EndRunVictory:
+                announcement = "Victory";
+                break;
+            case ERunState.EndRunDefeat:
+                announcement = "Defeat";
+                break;
+            default:
+                announcement = GetStateDescription();
+                break;
+        }
 
         TolkWrapper.Speak(announcement);
 
@@ -1362,6 +1389,7 @@ public class GameplayNavigator
         EPlayerAttributeType.Gold => "Gold",
         EPlayerAttributeType.Level => "Level",
         EPlayerAttributeType.Experience => "Experience",
+        EPlayerAttributeType.Prestige => "Prestige",
         EPlayerAttributeType.Shield => "Shield",
         EPlayerAttributeType.Poison => "Poison",
         EPlayerAttributeType.Burn => "Burn",

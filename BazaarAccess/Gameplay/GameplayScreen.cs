@@ -322,13 +322,46 @@ public class GameplayScreen : IAccessibleScreen
             case AccessibleKey.ReorderRight:
                 HandleReorder(1);
                 break;
+
+            // I - Información de propiedades/keywords
+            case AccessibleKey.Info:
+                ReadPropertyInfo();
+                break;
         }
+    }
+
+    /// <summary>
+    /// Lee las descripciones de propiedades/keywords del item actual.
+    /// </summary>
+    private void ReadPropertyInfo()
+    {
+        var card = _navigator.GetCurrentCard();
+        if (card == null)
+        {
+            TolkWrapper.Speak("No item selected");
+            return;
+        }
+
+        var descriptions = ItemReader.GetAllPropertyDescriptions(card);
+        if (descriptions.Count == 0)
+        {
+            TolkWrapper.Speak("No property information available");
+            return;
+        }
+
+        // Leer todas las descripciones
+        string name = ItemReader.GetCardName(card);
+        string info = $"{name} properties: " + string.Join(". ", descriptions);
+        TolkWrapper.Speak(info);
+
+        // También añadir al buffer para poder releer
+        MessageBuffer.Add(info);
     }
 
     public string GetHelp()
     {
         return "Left/Right: Navigate items. Tab: Switch section. Space: Stash. " +
-               "B: Board. V: Hero. C: Choices. F: Enemy info. " +
+               "B: Board. V: Hero. C: Choices. F: Enemy info. I: Property info. " +
                "Enter: Select/Buy/Sell. E: Exit. R: Refresh. " +
                "Shift+Up/Down: Move to board/stash. Shift+Left/Right: Reorder. " +
                "Ctrl+Up/Down: Read item details or navigate Hero stats. " +

@@ -8,10 +8,12 @@ using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameClient.Domain.Tooltips;
 using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarGameShared.Domain.Tooltips;
 using BazaarGameShared.Domain.Values;
 using TheBazaar;
 using TheBazaar.AppFramework;
 using TheBazaar.Localization;
+using TheBazaar.Utilities;
 
 // Para limpiar tags HTML de textos
 
@@ -26,6 +28,12 @@ public static class ItemReader
     private static readonly Regex TokenRegex = new Regex(
         @"\{(\w+)(?::(\w+))?\}",
         RegexOptions.Compiled);
+
+    // Regex para detectar valores en milisegundos que deberían ser segundos
+    // Patrones: "for 1000 second", "1000 second(s)", etc.
+    private static readonly Regex MillisecondsInTextRegex = new Regex(
+        @"(\d{3,})\s*(second|sec)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // Mapeo de nombres de token a tipos de atributo
     private static readonly Dictionary<string, ECardAttributeType> TokenToAttribute = new Dictionary<string, ECardAttributeType>(StringComparer.OrdinalIgnoreCase)
@@ -118,6 +126,8 @@ public static class ItemReader
         if (string.IsNullOrEmpty(localizedText) || card == null)
             return localizedText;
 
+        string resolved = null;
+
         // Primero intentar usar el sistema de tooltips del juego para resolver tokens de abilities
         try
         {
@@ -133,11 +143,7 @@ public static class ItemReader
                 };
 
                 var builder = TooltipBuilder.Create(tooltipContext, localizedText);
-                string resolved = builder.Render(true);
-                if (!string.IsNullOrEmpty(resolved))
-                {
-                    return resolved;
-                }
+                resolved = builder.Render(true);
             }
         }
         catch (Exception ex)
@@ -145,8 +151,47 @@ public static class ItemReader
             Plugin.Logger.LogDebug($"TooltipBuilder failed, falling back to regex: {ex.Message}");
         }
 
-        // Fallback al sistema regex si el TooltipBuilder no funciona
-        return ResolveTokens(localizedText, card);
+        // Si el TooltipBuilder no funcionó, usar regex
+        if (string.IsNullOrEmpty(resolved))
+        {
+            resolved = ResolveTokens(localizedText, card);
+        }
+
+        // Post-procesar para convertir milisegundos a segundos
+        // El TooltipBuilder devuelve valores crudos sin aplicar transformers
+        resolved = ConvertMillisecondsInText(resolved);
+
+        return resolved;
+    }
+
+    /// <summary>
+    /// Convierte valores en milisegundos a segundos en el texto.
+    /// Detecta patrones como "1000 second" y los convierte a "1 second".
+    /// </summary>
+    private static string ConvertMillisecondsInText(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return text;
+
+        return MillisecondsInTextRegex.Replace(text, match =>
+        {
+            string numberStr = match.Groups[1].Value;
+            string unit = match.Groups[2].Value;
+
+            if (int.TryParse(numberStr, out int milliseconds) && milliseconds >= 100)
+            {
+                // Convertir a segundos
+                float seconds = milliseconds / 1000f;
+
+                // Formatear: si es entero, mostrar sin decimales
+                string formattedSeconds = seconds == (int)seconds
+                    ? ((int)seconds).ToString()
+                    : seconds.ToString("F1");
+
+                return $"{formattedSeconds} {unit}";
+            }
+
+            return match.Value;
+        });
     }
 
     /// <summary>
@@ -713,5 +758,131 @@ public static class ItemReader
         {
             lines.Add($"{label}: {value.Value}");
         }
+    }
+
+    /// <summary>
+    /// Obtiene las descripciones de las propiedades/tags de una carta.
+    /// Usa el diccionario de leyendas del juego para obtener explicaciones.
+    /// </summary>
+    public static List<string> GetTagDescriptions(Card card)
+    {
+        var descriptions = new List<string>();
+        if (card == null || card.Tags == null || card.Tags.Count == 0)
+            return descriptions;
+
+        foreach (var tag in card.Tags)
+        {
+            // Solo incluir tags relevantes para el usuario
+            if (!RelevantTags.Contains(tag))
+                continue;
+
+            string tagName = tag.ToString();
+
+            // Buscar en el diccionario de leyendas del juego
+            if (Data.TooltipLegendStringDictionary.TryGetValue(tagName, out var symbol))
+            {
+                if (symbol != null && !string.IsNullOrEmpty(symbol.Keyword))
+                {
+                    // Obtener el texto localizado del keyword (descripción)
+                    string description = new LocalizableText(symbol.Keyword).GetLocalizedText();
+                    if (!string.IsNullOrEmpty(description))
+                    {
+                        // Limpiar HTML tags
+                        description = TextHelper.CleanText(description);
+                        descriptions.Add($"{tagName}: {description}");
+                    }
+                    else
+                    {
+                        descriptions.Add($"{tagName}: No description available");
+                    }
+                }
+                else
+                {
+                    descriptions.Add($"{tagName}: No description available");
+                }
+            }
+            else
+            {
+                // Si no hay descripción en el diccionario, mostrar solo el nombre
+                descriptions.Add($"{tagName}: No description available");
+            }
+        }
+
+        return descriptions;
+    }
+
+    /// <summary>
+    /// Obtiene las descripciones de keywords mencionados en los tooltips de la carta.
+    /// Incluye efectos como Burn, Poison, Haste, etc.
+    /// </summary>
+    public static List<string> GetKeywordDescriptions(Card card)
+    {
+        var descriptions = new List<string>();
+        if (card == null) return descriptions;
+
+        // Obtener el texto completo del tooltip para buscar keywords
+        string fullDesc = GetFullDescription(card);
+        if (string.IsNullOrEmpty(fullDesc)) return descriptions;
+
+        // Lista de keywords que el juego soporta (de Data.BuildTooltipLegend)
+        var keywordsToCheck = new[]
+        {
+            // Efectos de daño/curación
+            "Damage", "Healing", "Shield", "Burn", "Poison", "Regen", "Joy",
+            // Efectos de velocidad
+            "Slow", "Haste", "Freeze", "Charge",
+            // Efectos especiales
+            "Crit Chance", "Multicast", "Lifesteal", "Flying",
+            // Mecánicas
+            "Ammo", "Cooldown", "Income", "Upgrade",
+            // Estados
+            "Heated", "Chilled",
+            // Otros
+            "Enchant", "Transform", "Unsellable"
+        };
+
+        var addedKeywords = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var keyword in keywordsToCheck)
+        {
+            // Verificar si el keyword aparece en la descripción
+            if (fullDesc.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0 &&
+                !addedKeywords.Contains(keyword))
+            {
+                if (Data.TooltipLegendStringDictionary.TryGetValue(keyword, out var symbol))
+                {
+                    if (symbol != null && !string.IsNullOrEmpty(symbol.Keyword))
+                    {
+                        string description = new LocalizableText(symbol.Keyword).GetLocalizedText();
+                        if (!string.IsNullOrEmpty(description))
+                        {
+                            description = TextHelper.CleanText(description);
+                            descriptions.Add($"{keyword}: {description}");
+                            addedKeywords.Add(keyword);
+                        }
+                    }
+                }
+            }
+        }
+
+        return descriptions;
+    }
+
+    /// <summary>
+    /// Obtiene todas las descripciones de propiedades (tags + keywords) de una carta.
+    /// </summary>
+    public static List<string> GetAllPropertyDescriptions(Card card)
+    {
+        var allDescriptions = new List<string>();
+
+        // Primero los tags (tipos de item)
+        var tagDescriptions = GetTagDescriptions(card);
+        allDescriptions.AddRange(tagDescriptions);
+
+        // Luego los keywords mencionados en los tooltips
+        var keywordDescriptions = GetKeywordDescriptions(card);
+        allDescriptions.AddRange(keywordDescriptions);
+
+        return allDescriptions;
     }
 }

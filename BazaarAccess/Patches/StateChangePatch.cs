@@ -18,8 +18,8 @@ using PlayerHealthChangedEvent = TheBazaar.PlayerHealthChangedEvent;
 namespace BazaarAccess.Patches;
 
 /// <summary>
-/// Escucha cambios de estado del gameplay en tiempo real.
-/// Usa los eventos nativos del juego para mayor confiabilidad.
+/// Listens to gameplay state changes in real time.
+/// Uses native game events for reliability.
 /// </summary>
 public static class StateChangePatch
 {
@@ -30,17 +30,17 @@ public static class StateChangePatch
     private static Type _eventsType;
     private static Type _replayStateType;
 
-    // Throttle para evitar spam de anuncios
+    // Throttle to avoid announcement spam
     private static Coroutine _announceCoroutine = null;
     private static float _lastAnnounceTime = 0f;
-    private const float ANNOUNCE_DEBOUNCE_DELAY = 0.4f; // Segundos de espera antes de anunciar
-    private const float ANNOUNCE_THROTTLE_WINDOW = 1.0f; // Ventana mínima entre anuncios
+    private const float ANNOUNCE_DEBOUNCE_DELAY = 0.4f; // Seconds to wait before announcing
+    private const float ANNOUNCE_THROTTLE_WINDOW = 1.0f; // Minimum window between announcements
 
     public static bool IsInCombat => _inCombat;
     public static bool IsInReplayState => _inReplayState;
 
     /// <summary>
-    /// Inicializa la suscripción a eventos.
+    /// Initializes event subscriptions.
     /// </summary>
     public static void Subscribe()
     {
@@ -52,79 +52,85 @@ public static class StateChangePatch
             _eventsType = typeof(AppState).Assembly.GetType("TheBazaar.Events");
             if (_eventsType == null)
             {
-                Plugin.Logger.LogError("StateChangePatch: No se encontró TheBazaar.Events");
+                Plugin.Logger.LogError("StateChangePatch: TheBazaar.Events not found");
                 return;
             }
 
             _replayStateType = typeof(AppState).Assembly.GetType("TheBazaar.ReplayState");
             if (_replayStateType == null)
             {
-                Plugin.Logger.LogWarning("StateChangePatch: No se encontró TheBazaar.ReplayState");
+                Plugin.Logger.LogWarning("StateChangePatch: TheBazaar.ReplayState not found");
             }
 
-            // === Eventos de cambio de estado ===
+            // === State change events ===
             SubscribeToEvent("StateChanged", typeof(Action<StateChangedEvent>),
                 (Action<StateChangedEvent>)OnStateChanged);
 
-            // === Eventos de transición/animación completada ===
+            // === Transition/animation completed events ===
             SubscribeToEventNoParam("BoardTransitionFinished", OnBoardTransitionFinished);
             SubscribeToEventNoParam("NewDayTransitionAnimationFinished", OnNewDayTransitionFinished);
 
-            // === Eventos de combate ===
+            // === Combat events ===
             SubscribeToEventNoParam("CombatStarted", OnCombatStarted);
             SubscribeToEventNoParam("CombatEnded", OnCombatEnded);
 
-            // === Eventos de narración de combate ===
+            // === Victory/defeat events ===
+            SubscribeToEvent("VictoryCountChanged", typeof(Action<uint>),
+                (Action<uint>)OnVictoryCountChanged);
+            SubscribeToEvent("PlayerPrestigeChangedSimEvent", typeof(Action<GameSimEventPlayerPrestigeChanged>),
+                (Action<GameSimEventPlayerPrestigeChanged>)OnPrestigeChanged);
+
+            // === Combat narration events ===
             SubscribeToEvent("EffectTriggered", typeof(Action<EffectTriggeredEvent>),
                 (Action<EffectTriggeredEvent>)CombatDescriber.OnEffectTriggered);
             SubscribeToEvent("PlayerHealthChanged", typeof(Action<PlayerHealthChangedEvent>),
                 (Action<PlayerHealthChangedEvent>)CombatDescriber.OnPlayerHealthChanged);
 
-            // === Eventos de compra/venta ===
+            // === Buy/sell events ===
             SubscribeToEvent("CardPurchasedSimEvent", typeof(Action<GameSimEventCardPurchased>),
                 (Action<GameSimEventCardPurchased>)OnCardPurchased);
             SubscribeToEvent("CardSoldSimEvent", typeof(Action<GameSimEventCardSold>),
                 (Action<GameSimEventCardSold>)OnCardSold);
 
-            // === Evento de skill equipada (se dispara cuando una skill es añadida al jugador) ===
+            // === Skill equipped event (fires when a skill is added to the player) ===
             SubscribeToEvent("PlayerSkillEquippedSimEvent", typeof(Action<GameSimEventPlayerSkillEquipped>),
                 (Action<GameSimEventPlayerSkillEquipped>)OnSkillEquipped);
 
-            // === Eventos de cartas (disposed = removed from selection after buy) ===
+            // === Card events (disposed = removed from selection after buy) ===
             SubscribeToEvent("CardDisposedSimEvent", typeof(Action<List<Card>>),
                 (Action<List<Card>>)OnCardDisposed);
 
-            // === Evento de selección de carta (fires immediately when card is clicked) ===
+            // === Card selection event (fires immediately when card is clicked) ===
             SubscribeToEventNoParam("CardSelected", OnCardSelected);
 
-            // === Evento de compra/selección de item (AppState event, fires for all items including loot) ===
+            // === Item purchase/selection event (AppState event, fires for all items including loot) ===
             AppState.ItemPurchased += OnItemPurchased;
 
-            // === Eventos del tablero ===
+            // === Board events ===
             SubscribeToEventNoParam("OnBoardChanged", OnBoardChanged);
 
-            // === Eventos del stash ===
+            // === Stash events ===
             SubscribeToEvent("StorageToggled", typeof(Action<bool>),
                 (Action<bool>)OnStorageToggled);
 
-            // === Eventos de replay ===
+            // === Replay events ===
             SubscribeToEventNoParam("ReplayEnded", OnReplayEnded);
 
-            // === Eventos de errores ===
+            // === Error events ===
             SubscribeToEvent("NotEnoughSpace", typeof(Action<Card>),
                 (Action<Card>)OnNotEnoughSpace);
             SubscribeToEvent("CantAffordCard", typeof(Action<Card>),
                 (Action<Card>)OnCantAffordCard);
 
-            // === Eventos de BoardManager (cartas reveladas) ===
+            // === BoardManager events (cards revealed) ===
             SubscribeToBoardManagerEvent("ItemCardsRevealed", OnItemCardsRevealed);
             SubscribeToBoardManagerEvent("SkillCardsRevealed", OnSkillCardsRevealed);
 
-            // === Eventos de AppState ===
+            // === AppState events ===
             SubscribeToAppStateEvent("StateExited", OnStateExited);
             SubscribeToAppStateEvent("EncounterEntered", OnEncounterEntered);
 
-            Plugin.Logger.LogInfo("StateChangePatch: Suscrito a eventos del juego");
+            Plugin.Logger.LogInfo("StateChangePatch: Subscribed to game events");
         }
         catch (Exception ex)
         {
@@ -138,23 +144,23 @@ public static class StateChangePatch
     {
         try
         {
-            // Buscar en campos públicos y no públicos (Events es internal)
+            // Search in public and non-public fields (Events is internal)
             var eventField = _eventsType.GetField(eventName,
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             if (eventField == null)
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: No se encontró Events.{eventName}");
+                Plugin.Logger.LogWarning($"StateChangePatch: Events.{eventName} not found");
                 return;
             }
 
             var eventObj = eventField.GetValue(null);
             if (eventObj == null)
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: Events.{eventName} es null");
+                Plugin.Logger.LogWarning($"StateChangePatch: Events.{eventName} is null");
                 return;
             }
 
-            // Buscar AddListener con el tipo de handler específico
+            // Find AddListener with the specific handler type
             var addMethod = eventObj.GetType().GetMethod("AddListener",
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
                 null,
@@ -164,16 +170,16 @@ public static class StateChangePatch
             if (addMethod != null)
             {
                 addMethod.Invoke(eventObj, new object[] { handler, null });
-                Plugin.Logger.LogInfo($"StateChangePatch: Suscrito a Events.{eventName}");
+                Plugin.Logger.LogInfo($"StateChangePatch: Subscribed to Events.{eventName}");
             }
             else
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: No se encontró AddListener para Events.{eventName}");
+                Plugin.Logger.LogWarning($"StateChangePatch: AddListener not found for Events.{eventName}");
             }
         }
         catch (Exception ex)
         {
-            Plugin.Logger.LogWarning($"StateChangePatch: Error suscribiendo a {eventName}: {ex.Message}");
+            Plugin.Logger.LogWarning($"StateChangePatch: Error subscribing to {eventName}: {ex.Message}");
         }
     }
 
@@ -185,14 +191,14 @@ public static class StateChangePatch
                 BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
             if (eventField == null)
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: No se encontró Events.{eventName} (NoParam)");
+                Plugin.Logger.LogWarning($"StateChangePatch: Events.{eventName} not found (NoParam)");
                 return;
             }
 
             var eventObj = eventField.GetValue(null);
             if (eventObj == null)
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: Events.{eventName} es null (NoParam)");
+                Plugin.Logger.LogWarning($"StateChangePatch: Events.{eventName} is null (NoParam)");
                 return;
             }
 
@@ -205,16 +211,16 @@ public static class StateChangePatch
             if (addMethod != null)
             {
                 addMethod.Invoke(eventObj, new object[] { handler, null });
-                Plugin.Logger.LogInfo($"StateChangePatch: Suscrito a Events.{eventName}");
+                Plugin.Logger.LogInfo($"StateChangePatch: Subscribed to Events.{eventName}");
             }
             else
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: No se encontró AddListener para Events.{eventName} (NoParam)");
+                Plugin.Logger.LogWarning($"StateChangePatch: AddListener not found for Events.{eventName} (NoParam)");
             }
         }
         catch (Exception ex)
         {
-            Plugin.Logger.LogWarning($"StateChangePatch: Error suscribiendo a {eventName}: {ex.Message}");
+            Plugin.Logger.LogWarning($"StateChangePatch: Error subscribing to {eventName}: {ex.Message}");
         }
     }
 
@@ -226,16 +232,16 @@ public static class StateChangePatch
             if (eventInfo != null)
             {
                 eventInfo.AddEventHandler(null, handler);
-                Plugin.Logger.LogInfo($"StateChangePatch: Suscrito a BoardManager.{eventName}");
+                Plugin.Logger.LogInfo($"StateChangePatch: Subscribed to BoardManager.{eventName}");
             }
             else
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: No se encontró BoardManager.{eventName}");
+                Plugin.Logger.LogWarning($"StateChangePatch: BoardManager.{eventName} not found");
             }
         }
         catch (Exception ex)
         {
-            Plugin.Logger.LogWarning($"StateChangePatch: Error suscribiendo a BoardManager.{eventName}: {ex.Message}");
+            Plugin.Logger.LogWarning($"StateChangePatch: Error subscribing to BoardManager.{eventName}: {ex.Message}");
         }
     }
 
@@ -247,16 +253,16 @@ public static class StateChangePatch
             if (eventInfo != null)
             {
                 eventInfo.AddEventHandler(null, handler);
-                Plugin.Logger.LogInfo($"StateChangePatch: Suscrito a AppState.{eventName}");
+                Plugin.Logger.LogInfo($"StateChangePatch: Subscribed to AppState.{eventName}");
             }
             else
             {
-                Plugin.Logger.LogWarning($"StateChangePatch: No se encontró AppState.{eventName}");
+                Plugin.Logger.LogWarning($"StateChangePatch: AppState.{eventName} not found");
             }
         }
         catch (Exception ex)
         {
-            Plugin.Logger.LogWarning($"StateChangePatch: Error suscribiendo a AppState.{eventName}: {ex.Message}");
+            Plugin.Logger.LogWarning($"StateChangePatch: Error subscribing to AppState.{eventName}: {ex.Message}");
         }
     }
 
@@ -265,7 +271,7 @@ public static class StateChangePatch
     #region Event Handlers
 
     /// <summary>
-    /// Evento principal de cambio de estado.
+    /// Main state change event.
     /// </summary>
     private static void OnStateChanged(StateChangedEvent evt)
     {
@@ -277,7 +283,7 @@ public static class StateChangePatch
             bool stateActuallyChanged = newState != _lastState;
             _lastState = newState;
 
-            // Detectar si entramos/salimos de ReplayState
+            // Detect if we enter/exit ReplayState
             bool wasInReplayState = _inReplayState;
             _inReplayState = _replayStateType != null &&
                              _replayStateType.IsInstanceOfType(AppState.CurrentState);
@@ -312,8 +318,8 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Cuando termina una transición del tablero (animaciones completas).
-    /// Este es el evento PRINCIPAL para anunciar - los demás solo hacen refresh.
+    /// When a board transition finishes (animations complete).
+    /// This is the MAIN event for announcing - others only refresh.
     /// </summary>
     private static void OnBoardTransitionFinished()
     {
@@ -322,63 +328,63 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Cuando termina la animación de nuevo día.
+    /// When new day animation finishes.
     /// </summary>
     private static void OnNewDayTransitionFinished()
     {
         Plugin.Logger.LogInfo("NewDayTransitionAnimationFinished - UI ready");
-        // Solo refresh, BoardTransitionFinished anunciará
+        // Only refresh, BoardTransitionFinished will announce
         TriggerRefresh();
     }
 
     /// <summary>
-    /// Cuando las cartas de items son reveladas (después de animación).
+    /// When item cards are revealed (after animation).
     /// </summary>
     private static void OnItemCardsRevealed()
     {
         Plugin.Logger.LogInfo("ItemCardsRevealed - Cards ready");
-        // Solo refresh, BoardTransitionFinished anunciará
+        // Only refresh, BoardTransitionFinished will announce
         TriggerRefresh();
     }
 
     /// <summary>
-    /// Cuando las cartas de skills son reveladas.
+    /// When skill cards are revealed.
     /// </summary>
     private static void OnSkillCardsRevealed()
     {
         Plugin.Logger.LogInfo("SkillCardsRevealed - Skills ready");
-        // Solo refresh, BoardTransitionFinished anunciará
+        // Only refresh, BoardTransitionFinished will announce
         TriggerRefresh();
     }
 
     /// <summary>
-    /// Cuando se sale de un estado (antes de entrar al siguiente).
+    /// When exiting a state (before entering the next one).
     /// </summary>
     private static void OnStateExited()
     {
         Plugin.Logger.LogInfo("AppState.StateExited");
-        // No anunciar aquí, esperar a que el nuevo estado esté listo
+        // Don't announce here, wait for the new state to be ready
     }
 
     /// <summary>
-    /// Cuando se entra en un encuentro.
+    /// When entering an encounter.
     /// </summary>
     private static void OnEncounterEntered()
     {
         Plugin.Logger.LogInfo("AppState.EncounterEntered");
-        // Solo refresh, el siguiente BoardTransitionFinished anunciará
+        // Only refresh, the next BoardTransitionFinished will announce
         TriggerRefresh();
     }
 
     /// <summary>
-    /// Cuando empieza el combate.
+    /// When combat starts.
     /// </summary>
     private static void OnCombatStarted()
     {
         Plugin.Logger.LogInfo("CombatStarted");
         _inCombat = true;
 
-        // Iniciar narración del combate
+        // Start combat narration
         CombatDescriber.StartDescribing();
 
         var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
@@ -386,48 +392,71 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Cuando termina el combate.
+    /// When combat ends.
     /// </summary>
     private static void OnCombatEnded()
     {
         Plugin.Logger.LogInfo("CombatEnded");
         _inCombat = false;
 
-        // Detener narración del combate
+        // Stop combat narration
         CombatDescriber.StopDescribing();
 
         var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
         screen?.OnCombatStateChanged(false);
     }
 
+    /// <summary>
+    /// When victory count increases (we won the combat).
+    /// </summary>
+    private static void OnVictoryCountChanged(uint newVictoryCount)
+    {
+        Plugin.Logger.LogInfo($"VictoryCountChanged: {newVictoryCount}");
+        TolkWrapper.Speak($"Victory! {newVictoryCount} wins");
+    }
+
+    /// <summary>
+    /// When prestige changes (if it decreases, we lost).
+    /// </summary>
+    private static void OnPrestigeChanged(GameSimEventPlayerPrestigeChanged evt)
+    {
+        Plugin.Logger.LogInfo($"PrestigeChanged: Delta={evt.Delta}");
+        if (evt.Delta < 0)
+        {
+            // Lost prestige = lost the combat
+            int currentPrestige = Data.Run?.Player?.GetAttributeValue(EPlayerAttributeType.Prestige) ?? 0;
+            TolkWrapper.Speak($"Defeat! Lost {-evt.Delta} prestige. {currentPrestige} remaining");
+        }
+    }
+
     private static void OnCardPurchased(GameSimEventCardPurchased evt)
     {
         Plugin.Logger.LogInfo($"Card purchased: {evt.InstanceId}");
-        // Solo refresh - ActionHelper ya anunció "Bought X"
+        // Only refresh - ActionHelper already announced "Bought X"
         TriggerRefresh();
     }
 
     private static void OnCardSold(GameSimEventCardSold evt)
     {
         Plugin.Logger.LogInfo($"Card sold: {evt.InstanceId}");
-        // Solo refresh - ActionHelper ya anunció "Sold X"
+        // Only refresh - ActionHelper already announced "Sold X"
         TriggerRefresh();
     }
 
     private static void OnSkillEquipped(GameSimEventPlayerSkillEquipped evt)
     {
-        // Solo refrescar si la skill es del jugador, no del oponente
+        // Only refresh if skill is for the player, not the opponent
         if (evt.Owner == ECombatantId.Player)
         {
             Plugin.Logger.LogInfo($"Skill equipped: {evt.InstanceId}");
-            // Pequeño delay para asegurar que Player.Skills ya fue actualizado
+            // Small delay to ensure Player.Skills has been updated
             Plugin.Instance.StartCoroutine(DelayedRefreshAfterSkillEquipped());
         }
     }
 
     private static System.Collections.IEnumerator DelayedRefreshAfterSkillEquipped()
     {
-        // Delay corto - Player.Skills ya debería estar actualizado
+        // Short delay - Player.Skills should already be updated
         yield return new UnityEngine.WaitForSeconds(0.1f);
         TriggerRefresh();
     }
@@ -435,14 +464,14 @@ public static class StateChangePatch
     private static void OnCardDisposed(List<Card> cards)
     {
         Plugin.Logger.LogInfo($"Cards disposed: {cards?.Count ?? 0}");
-        // Solo refresh - la selección/transición ya fue anunciada
+        // Only refresh - selection/transition already announced
         TriggerRefresh();
     }
 
     private static void OnCardSelected()
     {
         Plugin.Logger.LogInfo("Card selected - triggering delayed refresh");
-        // Usar coroutine para esperar a que el juego procese la selección
+        // Use coroutine to wait for the game to process the selection
         Plugin.Instance.StartCoroutine(DelayedRefreshAfterSelection());
     }
 
@@ -450,15 +479,15 @@ public static class StateChangePatch
     {
         string cardName = card?.ToString() ?? "unknown";
         Plugin.Logger.LogInfo($"Item purchased/selected: {cardName} - triggering delayed refresh");
-        // Usar coroutine para esperar a que el juego procese la selección
+        // Use coroutine to wait for the game to process the selection
         Plugin.Instance.StartCoroutine(DelayedRefreshAfterSelection());
     }
 
     private static System.Collections.IEnumerator DelayedRefreshAfterSelection()
     {
-        // Esperar un poco para que el juego procese la selección
+        // Wait a bit for the game to process the selection
         yield return new UnityEngine.WaitForSeconds(0.3f);
-        // Solo refresh, los eventos del juego se encargarán del anuncio con debounce
+        // Only refresh, game events will handle announcement with debounce
         TriggerRefresh();
     }
 
@@ -476,26 +505,26 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Cuando termina un replay (el jugador vio el replay del combate).
+    /// When a replay ends (player watched the combat replay).
     /// </summary>
     private static void OnReplayEnded()
     {
         Plugin.Logger.LogInfo("ReplayEnded - Replay finished, refreshing UI");
-        // Después del replay, la UI puede estar desactualizada
+        // After replay, UI may be outdated
         Plugin.Instance.StartCoroutine(DelayedRefreshAfterReplay());
     }
 
     private static System.Collections.IEnumerator DelayedRefreshAfterReplay()
     {
-        // Esperar a que termine la animación
+        // Wait for animation to finish
         yield return new UnityEngine.WaitForSeconds(0.5f);
         TriggerRefresh();
     }
 
     private static System.Collections.IEnumerator DelayedRefreshAfterExitReplayState()
     {
-        // Múltiples refreshes para capturar cambios tardíos después del ReplayState
-        // No anunciar aquí - los eventos del juego lo harán con debounce
+        // Multiple refreshes to capture late changes after ReplayState
+        // Don't announce here - game events will do it with debounce
         yield return new UnityEngine.WaitForSeconds(0.3f);
         TriggerRefresh();
 
@@ -507,7 +536,7 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Cuando no hay espacio para un item.
+    /// When there's no space for an item.
     /// </summary>
     private static void OnNotEnoughSpace(Card card)
     {
@@ -517,7 +546,7 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Cuando no hay suficiente oro para comprar.
+    /// When there's not enough gold to buy.
     /// </summary>
     private static void OnCantAffordCard(Card card)
     {
@@ -532,7 +561,7 @@ public static class StateChangePatch
     #region Public Methods
 
     /// <summary>
-    /// Dispara un refresh de la pantalla de gameplay (sin anunciar).
+    /// Triggers a refresh of the gameplay screen (without announcing).
     /// </summary>
     public static void TriggerRefresh()
     {
@@ -543,19 +572,19 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Dispara un refresh y anuncia el estado actual con debounce + throttle.
-    /// Múltiples llamadas en un corto período se agrupan en un solo anuncio.
-    /// Además, no se permite más de un anuncio por ventana de throttle.
+    /// Triggers a refresh and announces current state with debounce + throttle.
+    /// Multiple calls in a short period are grouped into a single announcement.
+    /// Also, no more than one announcement per throttle window is allowed.
     /// </summary>
     public static void TriggerRefreshAndAnnounce()
     {
         if (AccessibilityMgr.GetFocusedUI() != null) return;
 
-        // Siempre hacer refresh inmediatamente
+        // Always refresh immediately
         var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
         screen?.RefreshNavigator();
 
-        // Throttle: si hubo un anuncio reciente, ignorar
+        // Throttle: if there was a recent announcement, ignore
         float timeSinceLastAnnounce = UnityEngine.Time.time - _lastAnnounceTime;
         if (timeSinceLastAnnounce < ANNOUNCE_THROTTLE_WINDOW)
         {
@@ -563,19 +592,19 @@ public static class StateChangePatch
             return;
         }
 
-        // Debounce: si ya hay un anuncio pendiente, no iniciar otro
+        // Debounce: if there's already a pending announcement, don't start another
         if (_announceCoroutine != null)
         {
             Plugin.Logger.LogInfo("TriggerRefreshAndAnnounce: Debouncing, waiting for previous announce");
             return;
         }
 
-        // Iniciar coroutine con debounce
+        // Start coroutine with debounce
         _announceCoroutine = Plugin.Instance.StartCoroutine(DebouncedAnnounce());
     }
 
     /// <summary>
-    /// Coroutine que espera un poco antes de anunciar para agrupar eventos.
+    /// Coroutine that waits a bit before announcing to group events.
     /// </summary>
     private static System.Collections.IEnumerator DebouncedAnnounce()
     {
@@ -585,7 +614,7 @@ public static class StateChangePatch
 
         if (AccessibilityMgr.GetFocusedUI() != null) yield break;
 
-        // Verificar throttle de nuevo antes de anunciar
+        // Check throttle again before announcing
         float timeSinceLastAnnounce = UnityEngine.Time.time - _lastAnnounceTime;
         if (timeSinceLastAnnounce < ANNOUNCE_THROTTLE_WINDOW)
         {
@@ -596,7 +625,7 @@ public static class StateChangePatch
         var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
         if (screen != null)
         {
-            // Refresh final antes de anunciar
+            // Final refresh before announcing
             screen.RefreshNavigator();
             screen.AnnounceStateImmediate();
             _lastAnnounceTime = UnityEngine.Time.time;
@@ -605,14 +634,14 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Dispara un refresh y anuncia inmediatamente (sin debounce ni throttle).
-    /// Usar solo cuando el anuncio es crítico y no debe agruparse.
+    /// Triggers a refresh and announces immediately (no debounce or throttle).
+    /// Use only when the announcement is critical and should not be grouped.
     /// </summary>
     public static void TriggerRefreshAndAnnounceImmediate()
     {
         if (AccessibilityMgr.GetFocusedUI() != null) return;
 
-        // Cancelar cualquier anuncio pendiente
+        // Cancel any pending announcement
         if (_announceCoroutine != null)
         {
             Plugin.Instance.StopCoroutine(_announceCoroutine);

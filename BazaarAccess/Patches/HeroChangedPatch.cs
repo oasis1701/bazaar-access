@@ -4,15 +4,15 @@ using HarmonyLib;
 namespace BazaarAccess.Patches;
 
 /// <summary>
-/// Anuncia cuando cambia el héroe seleccionado.
+/// Announces when the selected hero changes.
 /// </summary>
 [HarmonyPatch(typeof(HeroSelectDisplay), "OnHeroChanged")]
 public static class HeroChangedPatch
 {
     static void Postfix(object hero)
     {
-        string heroName = hero?.ToString() ?? "Desconocido";
-        Plugin.Logger.LogInfo($"Héroe seleccionado: {heroName}");
+        string heroName = hero?.ToString() ?? "Unknown";
+        Plugin.Logger.LogInfo($"Hero selected: {heroName}");
         TolkWrapper.Speak(heroName);
     }
 }

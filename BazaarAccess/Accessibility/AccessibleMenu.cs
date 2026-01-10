@@ -5,8 +5,8 @@ using BazaarAccess.Core;
 namespace BazaarAccess.Accessibility;
 
 /// <summary>
-/// Menú accesible con navegación vertical.
-/// Sigue el patrón de Hearthstone: composición, delegados, y lectura con posición.
+/// Accessible menu with vertical navigation.
+/// Follows the Hearthstone pattern: composition, delegates, and reading with position.
 /// </summary>
 public class AccessibleMenu
 {
@@ -26,7 +26,7 @@ public class AccessibleMenu
         _currentIndex = 0;
     }
 
-    // --- Añadir opciones ---
+    // --- Add options ---
 
     public void AddOption(string text, Action onConfirm)
     {
@@ -59,10 +59,10 @@ public class AccessibleMenu
         _currentIndex = 0;
     }
 
-    // --- Navegación ---
+    // --- Navigation ---
 
     /// <summary>
-    /// Maneja la entrada del teclado. Retorna true si consumió la tecla.
+    /// Handles keyboard input. Returns true if the key was consumed.
     /// </summary>
     public bool HandleInput(AccessibleKey key)
     {
@@ -120,7 +120,7 @@ public class AccessibleMenu
         if (option.OnAdjust != null)
         {
             option.OnAdjust(direction);
-            // Leer el nuevo estado después de ajustar
+            // Read the new state after adjusting
             ReadCurrentOption();
         }
     }
@@ -138,10 +138,10 @@ public class AccessibleMenu
         _onBack?.Invoke();
     }
 
-    // --- Lectura ---
+    // --- Reading ---
 
     /// <summary>
-    /// Empieza a leer el menú desde la primera opción.
+    /// Starts reading the menu from the first option.
     /// </summary>
     public void StartReading(bool announceMenuName = true)
     {
@@ -159,7 +159,7 @@ public class AccessibleMenu
     }
 
     /// <summary>
-    /// Lee la opción actual con su posición.
+    /// Reads the current option with its position.
     /// </summary>
     public void ReadCurrentOption()
     {
@@ -167,20 +167,20 @@ public class AccessibleMenu
 
         var option = _options[_currentIndex];
 
-        // Ejecutar acción de lectura personalizada si existe
+        // Execute custom read action if it exists
         option.OnRead?.Invoke();
 
-        // Obtener texto de la opción
+        // Get option text
         string text = option.GetText();
 
-        // Formato: "Texto, elemento X de Y"
-        string speech = $"{text}, elemento {_currentIndex + 1} de {_options.Count}";
+        // Format: "Text, item X of Y"
+        string speech = $"{text}, item {_currentIndex + 1} of {_options.Count}";
 
         TolkWrapper.Speak(speech);
     }
 
     /// <summary>
-    /// Establece el índice actual sin leer.
+    /// Sets the current index without reading.
     /// </summary>
     public void SetIndex(int index)
     {
@@ -191,21 +191,21 @@ public class AccessibleMenu
     }
 
     /// <summary>
-    /// Obtiene la ayuda del menú.
+    /// Gets the menu help text.
     /// </summary>
     public string GetHelp()
     {
-        string help = "Usa arriba y abajo para navegar. Enter para seleccionar.";
+        string help = "Use up and down to navigate. Enter to select.";
         if (_onBack != null)
         {
-            help += " Escape para volver.";
+            help += " Escape to go back.";
         }
         return help;
     }
 }
 
 /// <summary>
-/// Teclas accesibles.
+/// Accessible keys.
 /// </summary>
 public enum AccessibleKey
 {
@@ -218,29 +218,31 @@ public enum AccessibleKey
     Back,
     Help,
     Tab,
-    // Navegación de secciones
-    GoToBoard,      // B - Ir al tablero
-    GoToHero,       // V - Ir al héroe
-    GoToChoices,    // C - Ir a choices/selection
-    GoToEnemy,      // F - Ir al enemigo/NPC
-    GoToStash,      // G - Ir al stash
-    // Acciones del juego
-    Exit,           // E - Salir del estado actual
+    // Section navigation
+    GoToBoard,      // B - Go to board
+    GoToHero,       // V - Go to hero
+    GoToChoices,    // C - Go to choices/selection
+    GoToEnemy,      // F - Go to enemy/NPC
+    GoToStash,      // G - Go to stash
+    // Game actions
+    Exit,           // E - Exit current state
     Reroll,         // R - Reroll/Refresh
-    Space,          // Espacio - Mover item
-    // Mover items entre board y stash
-    MoveToBoard,    // Shift+Up - Mover item del stash al board
-    MoveToStash,    // Shift+Down - Mover item del board al stash
-    // Reordenar items en el tablero
-    ReorderLeft,    // Shift+Left - Mover item a la izquierda
-    ReorderRight,   // Shift+Right - Mover item a la derecha
-    // Lectura detallada línea por línea (o navegación Hero stats)
-    DetailUp,       // Ctrl+Up - Siguiente línea/stat
-    DetailDown,     // Ctrl+Down - Línea/stat anterior
-    // Cambiar subsección en Hero (Stats/Skills)
-    DetailLeft,     // Ctrl+Left - Subsección anterior
-    DetailRight,    // Ctrl+Right - Subsección siguiente
-    // Buffer de mensajes
-    NextMessage,    // Punto - Mensaje más reciente
-    PrevMessage     // Coma - Mensaje anterior
+    Space,          // Space - Move item
+    // Move items between board and stash
+    MoveToBoard,    // Shift+Up - Move item from stash to board
+    MoveToStash,    // Shift+Down - Move item from board to stash
+    // Reorder items on the board
+    ReorderLeft,    // Shift+Left - Move item left
+    ReorderRight,   // Shift+Right - Move item right
+    // Detailed reading line by line (or Hero stats navigation)
+    DetailUp,       // Ctrl+Up - Next line/stat
+    DetailDown,     // Ctrl+Down - Previous line/stat
+    // Change subsection in Hero (Stats/Skills)
+    DetailLeft,     // Ctrl+Left - Previous subsection
+    DetailRight,    // Ctrl+Right - Next subsection
+    // Message buffer
+    NextMessage,    // Period - Most recent message
+    PrevMessage,    // Comma - Previous message
+    // Additional information
+    Info            // I - Property/keyword info for the item
 }

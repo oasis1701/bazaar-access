@@ -6,7 +6,7 @@ using UnityEngine.EventSystems;
 namespace BazaarAccess.Core;
 
 /// <summary>
-/// Maneja la entrada de teclado para navegación accesible.
+/// Handles keyboard input for accessible navigation.
 /// </summary>
 public class KeyboardNavigator : MonoBehaviour
 {
@@ -17,7 +17,7 @@ public class KeyboardNavigator : MonoBehaviour
         if (_instance == null)
         {
             _instance = parent.AddComponent<KeyboardNavigator>();
-            Plugin.Logger.LogInfo("KeyboardNavigator creado");
+            Plugin.Logger.LogInfo("KeyboardNavigator created");
         }
     }
 
@@ -44,21 +44,21 @@ public class KeyboardNavigator : MonoBehaviour
         Event e = Event.current;
         if (e == null || e.type != EventType.KeyDown) return;
 
-        // Si estamos en modo edición, solo permitir Enter/Escape para salir
+        // If in edit mode, only allow Enter/Escape to exit
         if (IsAnyTextFieldEditing())
         {
             if (e.keyCode != KeyCode.Return &&
                 e.keyCode != KeyCode.KeypadEnter &&
                 e.keyCode != KeyCode.Escape)
             {
-                return; // Unity maneja el input de texto
+                return; // Unity handles text input
             }
         }
 
         AccessibleKey key = MapKey(e);
         if (key == AccessibleKey.None) return;
 
-        // No limpiar selección si estamos editando (mantener foco en input field)
+        // Don't clear selection if editing (keep focus on input field)
         if (!IsAnyTextFieldEditing())
         {
             ClearUISelection();
@@ -69,7 +69,7 @@ public class KeyboardNavigator : MonoBehaviour
     }
 
     /// <summary>
-    /// Comprueba si hay algún campo de texto en modo edición.
+    /// Checks if any text field is in edit mode.
     /// </summary>
     private bool IsAnyTextFieldEditing()
     {
@@ -82,8 +82,8 @@ public class KeyboardNavigator : MonoBehaviour
     }
 
     /// <summary>
-    /// Mapea KeyCode de Unity a AccessibleKey.
-    /// Controles simples y fieles al juego original.
+    /// Maps Unity KeyCode to AccessibleKey.
+    /// Simple controls faithful to the original game.
     /// </summary>
     private AccessibleKey MapKey(Event e)
     {
@@ -93,7 +93,7 @@ public class KeyboardNavigator : MonoBehaviour
 
         switch (keyCode)
         {
-            // Ctrl = lectura detallada, Shift = mover entre board/stash
+            // Ctrl = detailed reading, Shift = move between board/stash
             case KeyCode.UpArrow:
                 if (ctrl) return AccessibleKey.DetailUp;
                 if (shift) return AccessibleKey.MoveToStash;
@@ -104,7 +104,7 @@ public class KeyboardNavigator : MonoBehaviour
                 if (shift) return AccessibleKey.MoveToBoard;
                 return AccessibleKey.Down;
 
-            // Shift+Izq/Der = reordenar items, Ctrl+Izq/Der = cambiar subsección Hero
+            // Shift+Left/Right = reorder items, Ctrl+Left/Right = change Hero subsection
             case KeyCode.LeftArrow:
                 if (ctrl) return AccessibleKey.DetailLeft;
                 if (shift) return AccessibleKey.ReorderLeft;
@@ -115,7 +115,7 @@ public class KeyboardNavigator : MonoBehaviour
                 if (shift) return AccessibleKey.ReorderRight;
                 return AccessibleKey.Right;
 
-            // Acciones principales
+            // Main actions
             case KeyCode.Return:
             case KeyCode.KeypadEnter:
                 return AccessibleKey.Confirm;
@@ -130,7 +130,7 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.F1:
                 return AccessibleKey.Help;
 
-            // Navegación de secciones
+            // Section navigation
             case KeyCode.B:
                 return AccessibleKey.GoToBoard;
 
@@ -146,7 +146,7 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.G:
                 return AccessibleKey.GoToStash;
 
-            // Acciones del juego
+            // Game actions
             case KeyCode.E:
                 return AccessibleKey.Exit;
 
@@ -156,12 +156,16 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.Space:
                 return AccessibleKey.Space;
 
-            // Buffer de mensajes
+            // Message buffer
             case KeyCode.Period:
                 return AccessibleKey.NextMessage;
 
             case KeyCode.Comma:
                 return AccessibleKey.PrevMessage;
+
+            // Additional information
+            case KeyCode.I:
+                return AccessibleKey.Info;
 
             default:
                 return AccessibleKey.None;

@@ -377,6 +377,7 @@ Pantalla accesible principal del gameplay que implementa `IAccessibleScreen`. Se
 - `Shift+Izq/Der`: Reordenar items en el Board
 - `.` (punto): Leer último mensaje
 - `,` (coma): Leer mensaje anterior
+- `I`: Ver propiedades/keywords del item (tags, descripciones)
 
 **Controles en Hero (V)**:
 - `Ctrl+Arriba`: Siguiente stat o skill
@@ -639,6 +640,12 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
 - ✅ **Sistema de Login Accesible**: Menús de inicio de sesión y creación de cuenta
 - ✅ **FTUE no bloquea gameplay**: Tutorial permite navegación normal mientras muestra diálogos
 - ✅ **Fix tokens de abilities**: Tooltips resuelven `{ability.0}`, `{ability.1}` usando TooltipBuilder del juego
+- ✅ **Level up mejorado**: Anuncia "Level up to X! Choose a skill, Y available"
+- ✅ **Prestige en Hero**: Se muestra el prestigio en la sección de stats del héroe (Ctrl+flechas)
+- ✅ **Fix nombre oponente**: En PvE muestra "Enemy", en PvP muestra el nombre correcto del jugador
+- ✅ **Anuncios de victoria/derrota**: "Victory! X wins" al ganar, "Defeat! Lost X prestige" al perder
+- ✅ **I key para propiedades**: Presiona I para escuchar descripciones de tags y keywords del item
+- ✅ **Código en inglés**: Todos los mensajes y comentarios del mod están en inglés
 
 ---
 
@@ -858,11 +865,6 @@ Al navegar con el teclado, las cartas muestran feedback visual (hover) para que 
 ---
 
 ## Pendiente por Implementar
-
-### Anuncios de Eventos
-- Subida de nivel
-- Victoria/Derrota en PvP
-- Cambios de prestigio
 
 ### Mejoras de Navegación
 - Preview de sinergia de items

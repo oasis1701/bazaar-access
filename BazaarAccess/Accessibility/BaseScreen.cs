@@ -6,8 +6,8 @@ using UnityEngine.UI;
 namespace BazaarAccess.Accessibility;
 
 /// <summary>
-/// Clase base para pantallas accesibles.
-/// Proporciona helpers para interactuar con la UI del juego.
+/// Base class for accessible screens.
+/// Provides helpers for interacting with the game UI.
 /// </summary>
 public abstract class BaseScreen : IAccessibleScreen
 {
@@ -24,8 +24,8 @@ public abstract class BaseScreen : IAccessibleScreen
     }
 
     /// <summary>
-    /// Construye el menú con las opciones de la pantalla.
-    /// Implementar en clases derivadas.
+    /// Builds the menu with screen options.
+    /// Override in derived classes.
     /// </summary>
     protected abstract void BuildMenu();
 
@@ -41,30 +41,30 @@ public abstract class BaseScreen : IAccessibleScreen
 
     public virtual void OnFocus()
     {
-        // Debug: listar todos los botones encontrados
+        // Debug: list all buttons found
         LogAllButtons();
         Menu.StartReading(announceMenuName: true);
     }
 
     /// <summary>
-    /// Debug: Lista todos los botones en la UI.
+    /// Debug: Lists all buttons in the UI.
     /// </summary>
     protected void LogAllButtons()
     {
         if (Root == null) return;
 
         var buttons = Root.GetComponentsInChildren<Button>(true);
-        Plugin.Logger.LogInfo($"=== Botones en {ScreenName} ({buttons.Length} total) ===");
+        Plugin.Logger.LogInfo($"=== Buttons in {ScreenName} ({buttons.Length} total) ===");
 
         foreach (var button in buttons)
         {
             string text = GetButtonText(button);
-            string active = button.gameObject.activeInHierarchy ? "activo" : "inactivo";
-            string interactable = button.interactable ? "interactable" : "no-interactable";
-            Plugin.Logger.LogInfo($"  [{button.gameObject.name}] texto='{text}' ({active}, {interactable})");
+            string active = button.gameObject.activeInHierarchy ? "active" : "inactive";
+            string interactable = button.interactable ? "interactable" : "non-interactable";
+            Plugin.Logger.LogInfo($"  [{button.gameObject.name}] text='{text}' ({active}, {interactable})");
         }
 
-        Plugin.Logger.LogInfo("=== Fin botones ===");
+        Plugin.Logger.LogInfo("=== End buttons ===");
     }
 
     public virtual bool IsValid()
@@ -74,44 +74,44 @@ public abstract class BaseScreen : IAccessibleScreen
         return true;
     }
 
-    // --- Helpers para interactuar con la UI del juego ---
+    // --- Helpers for interacting with game UI ---
 
     /// <summary>
-    /// Busca y hace click en un botón por su texto visible.
+    /// Finds and clicks a button by its visible text.
     /// </summary>
     protected bool ClickButtonByText(string text)
     {
         var button = FindButtonByText(text);
         if (button != null && button.interactable)
         {
-            Plugin.Logger.LogInfo($"Click por texto: {text}");
+            Plugin.Logger.LogInfo($"Click by text: {text}");
             button.onClick.Invoke();
             return true;
         }
 
-        Plugin.Logger.LogWarning($"Botón no encontrado por texto: {text}");
+        Plugin.Logger.LogWarning($"Button not found by text: {text}");
         return false;
     }
 
     /// <summary>
-    /// Busca y hace click en un botón por el nombre del GameObject.
+    /// Finds and clicks a button by GameObject name.
     /// </summary>
     protected bool ClickButtonByName(string name)
     {
         var button = FindButtonByName(name);
         if (button != null && button.interactable)
         {
-            Plugin.Logger.LogInfo($"Click por nombre: {name}");
+            Plugin.Logger.LogInfo($"Click by name: {name}");
             button.onClick.Invoke();
             return true;
         }
 
-        Plugin.Logger.LogWarning($"Botón no encontrado por nombre: {name}");
+        Plugin.Logger.LogWarning($"Button not found by name: {name}");
         return false;
     }
 
     /// <summary>
-    /// Busca un botón por su texto visible (case-insensitive).
+    /// Finds a button by its visible text (case-insensitive).
     /// </summary>
     protected Button FindButtonByText(string text)
     {
@@ -133,7 +133,7 @@ public abstract class BaseScreen : IAccessibleScreen
     }
 
     /// <summary>
-    /// Busca un botón por el nombre del GameObject (case-insensitive).
+    /// Finds a button by GameObject name (case-insensitive).
     /// </summary>
     protected Button FindButtonByName(string name)
     {
@@ -145,24 +145,24 @@ public abstract class BaseScreen : IAccessibleScreen
     }
 
     /// <summary>
-    /// Obtiene el texto de un botón por nombre de GameObject.
-    /// Útil para crear labels dinámicos.
+    /// Gets button text by GameObject name.
+    /// Useful for creating dynamic labels.
     /// </summary>
     protected string GetButtonTextByName(string name)
     {
         var button = FindButtonByName(name);
-        if (button == null) return name; // Fallback al nombre
+        if (button == null) return name; // Fallback to name
 
         string text = GetButtonText(button);
         return string.IsNullOrWhiteSpace(text) ? name : text;
     }
 
     /// <summary>
-    /// Obtiene el texto de un botón.
+    /// Gets the text of a button.
     /// </summary>
     protected string GetButtonText(Button button)
     {
-        // Intentar BazaarButtonController primero
+        // Try BazaarButtonController first
         var bazaarButton = button as BazaarButtonController;
         if (bazaarButton != null && bazaarButton.ButtonText != null)
         {
@@ -187,7 +187,7 @@ public abstract class BaseScreen : IAccessibleScreen
     }
 
     /// <summary>
-    /// Busca un Toggle por nombre.
+    /// Finds a Toggle by name.
     /// </summary>
     protected Toggle FindToggle(string name)
     {
@@ -199,7 +199,7 @@ public abstract class BaseScreen : IAccessibleScreen
     }
 
     /// <summary>
-    /// Busca un Slider por nombre.
+    /// Finds a Slider by name.
     /// </summary>
     protected Slider FindSlider(string name)
     {

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using BazaarAccess.Core;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameShared.Domain.Core.Types;
+using BazaarGameShared.Domain.Runs;
 using BazaarGameShared.Infra.Messages.CombatSimEvents;
 using TheBazaar;
 using UnityEngine;
@@ -97,31 +98,36 @@ public static class CombatDescriber
 
     /// <summary>
     /// Obtiene el nombre del enemigo (PvP o PvE).
+    /// Solo usa el nombre de PvP si estamos realmente en un combate PvP.
     /// </summary>
     private static string GetEnemyName()
     {
         try
         {
-            // PvP: usar nombre del jugador
-            var pvp = Data.SimPvpOpponent;
-            if (pvp != null && !string.IsNullOrEmpty(pvp.Name))
+            // Verificar si estamos en PvP combat
+            var currentState = Data.CurrentState?.StateName;
+            bool isPvpCombat = currentState == ERunState.PVPCombat;
+
+            Plugin.Logger.LogInfo($"GetEnemyName: currentState={currentState}, isPvpCombat={isPvpCombat}");
+
+            // Solo usar SimPvpOpponent si estamos realmente en PvP
+            if (isPvpCombat)
             {
-                return pvp.Name;
+                var pvp = Data.SimPvpOpponent;
+                if (pvp != null && !string.IsNullOrEmpty(pvp.Name))
+                {
+                    Plugin.Logger.LogInfo($"GetEnemyName: Using PvP opponent name: {pvp.Name}");
+                    return pvp.Name;
+                }
             }
 
-            // PvE: intentar obtener nombre del encuentro actual
-            var opponent = Data.Run?.Opponent;
-            if (opponent != null)
-            {
-                // Buscar la carta del encuentro en el SelectionSet anterior
-                // Por ahora usar "Enemy" como fallback
-                return "Enemy";
-            }
-
+            // PvE: usar "Enemy" como fallback
+            Plugin.Logger.LogInfo("GetEnemyName: Using 'Enemy' (PvE)");
             return "Enemy";
         }
-        catch
+        catch (Exception ex)
         {
+            Plugin.Logger.LogWarning($"GetEnemyName error: {ex.Message}");
             return "Enemy";
         }
     }

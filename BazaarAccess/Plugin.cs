@@ -17,29 +17,29 @@ public class Plugin : BaseUnityPlugin
         Instance = this;
         Logger = base.Logger;
 
-        // Inicializar Tolk con manejo de errores
+        // Initialize Tolk with error handling
         if (TolkWrapper.Initialize())
         {
-            TolkWrapper.Speak("Bazaar Access cargado");
+            TolkWrapper.Speak("Bazaar Access loaded");
         }
 
-        // Crear el navegador de teclado
+        // Create keyboard navigator
         KeyboardNavigator.Create(gameObject);
 
-        // Aplicar parches de Harmony
+        // Apply Harmony patches
         _harmony = new Harmony(MyPluginInfo.PLUGIN_GUID);
         try
         {
             _harmony.PatchAll();
-            Logger.LogInfo("Harmony patches aplicados correctamente");
+            Logger.LogInfo("Harmony patches applied successfully");
         }
         catch (System.Exception ex)
         {
-            Logger.LogError($"Error aplicando Harmony patches: {ex.Message}");
+            Logger.LogError($"Error applying Harmony patches: {ex.Message}");
             Logger.LogError(ex.StackTrace);
         }
 
-        Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} cargado");
+        Logger.LogInfo($"Plugin {MyPluginInfo.PLUGIN_GUID} loaded");
     }
 
     private void OnDestroy()
