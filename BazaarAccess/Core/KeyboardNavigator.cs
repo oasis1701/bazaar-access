@@ -1,4 +1,5 @@
 using BazaarAccess.Accessibility;
+using BazaarAccess.UI.Login;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
@@ -43,12 +44,41 @@ public class KeyboardNavigator : MonoBehaviour
         Event e = Event.current;
         if (e == null || e.type != EventType.KeyDown) return;
 
+        // Si estamos en modo edición, solo permitir Enter/Escape para salir
+        if (IsAnyTextFieldEditing())
+        {
+            if (e.keyCode != KeyCode.Return &&
+                e.keyCode != KeyCode.KeypadEnter &&
+                e.keyCode != KeyCode.Escape)
+            {
+                return; // Unity maneja el input de texto
+            }
+        }
+
         AccessibleKey key = MapKey(e);
         if (key == AccessibleKey.None) return;
 
-        ClearUISelection();
+        // No limpiar selección si estamos editando (mantener foco en input field)
+        if (!IsAnyTextFieldEditing())
+        {
+            ClearUISelection();
+        }
+
         AccessibilityMgr.HandleInput(key);
         e.Use();
+    }
+
+    /// <summary>
+    /// Comprueba si hay algún campo de texto en modo edición.
+    /// </summary>
+    private bool IsAnyTextFieldEditing()
+    {
+        var focusedUI = AccessibilityMgr.GetFocusedUI();
+        if (focusedUI is LoginBaseUI loginUI)
+        {
+            return loginUI.IsInEditMode;
+        }
+        return false;
     }
 
     /// <summary>

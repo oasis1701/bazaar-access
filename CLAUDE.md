@@ -21,6 +21,7 @@ BazaarAccess/
 ├── Accessibility/
 │   ├── AccessibleMenu.cs         # Menú navegable con posición
 │   ├── MenuOption.cs             # Opción de menú con delegados
+│   ├── TextFieldOption.cs        # Opción especial para campos de texto con modo edición
 │   ├── AccessibilityMgr.cs       # Gestor central (Screen + UI stack)
 │   ├── IAccessibleScreen.cs      # Interfaz para pantallas
 │   ├── IAccessibleUI.cs          # Interfaz para popups/diálogos
@@ -45,7 +46,20 @@ BazaarAccess/
 │   ├── FightMenuUI.cs            # Menú de pausa durante gameplay
 │   ├── ConfirmActionUI.cs        # Popup de confirmación compra/venta
 │   ├── GenericPopupUI.cs         # Popups genéricos (tutoriales, mensajes)
-│   └── TutorialUI.cs             # UI accesible para el tutorial (FTUE)
+│   ├── TutorialUI.cs             # UI accesible para el tutorial (FTUE)
+│   └── Login/                    # Sistema de login/cuenta accesible
+│       ├── LoginBaseUI.cs        # Clase base con modo edición para campos de texto
+│       ├── LandingUI.cs          # Pantalla inicial (Link/Create Account)
+│       ├── LoginUI.cs            # Email + Password
+│       ├── CreateAccountEmailUI.cs       # Email + Confirm Email
+│       ├── CreateAccountUserPasswordUI.cs # Username + Password + Confirm
+│       ├── CreateAccountTermsUI.cs       # ToS + EULA toggles
+│       ├── ForgotPasswordUI.cs   # Recuperación de contraseña
+│       ├── ResetEmailUI.cs       # Cambio de email
+│       ├── ForgotPasswordConfirmUI.cs    # Confirmación de reset
+│       ├── AccountVerifiedUI.cs  # Cuenta verificada
+│       ├── RegistrationFailedUI.cs       # Error de registro
+│       └── AccessDeniedUI.cs     # Acceso denegado
 └── Patches/
     ├── ViewControllerPatch.cs    # Detecta cambios de vista
     ├── PopupPatch.cs             # Popups genéricos
@@ -55,7 +69,8 @@ BazaarAccess/
     ├── GameplayPatch.cs          # Detecta entrada al gameplay (BoardManager.OnAwake)
     ├── StateChangePatch.cs       # Suscripción a eventos del juego en tiempo real
     ├── TutorialPatch.cs          # Accesibilidad del tutorial (FTUE)
-    └── EndOfRunPatch.cs          # Pantalla de fin de partida
+    ├── EndOfRunPatch.cs          # Pantalla de fin de partida
+    └── LoginPatch.cs             # Sistema de login/cuenta (11 StateViews)
 ```
 
 ## Arquitectura: Screens y UIs
@@ -621,6 +636,85 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
 - ✅ **Tutorial (FTUE) accesible**: Lee diálogos del tutorial, Enter para continuar
 - ✅ **Mensajes del tutorial en buffer**: Releer con punto/coma
 - ✅ **Fix duplicados**: Eliminados mensajes duplicados (stash, end of run)
+- ✅ **Sistema de Login Accesible**: Menús de inicio de sesión y creación de cuenta
+
+---
+
+## Sistema de Login/Cuenta Accesible
+
+El sistema de login es accesible mediante `LoginPatch.cs` y las UIs en `UI/Login/`.
+
+### Pantallas Soportadas
+
+| Pantalla | Clase | Campos |
+|----------|-------|--------|
+| Welcome | `LandingUI` | Link Account, Create Account |
+| Login | `LoginUI` | Email, Password, Continue, Reset Password |
+| Create Account - Email | `CreateAccountEmailUI` | Email, Confirm Email, Continue |
+| Create Account - Username | `CreateAccountUserPasswordUI` | Username, Password, Confirm Password, Continue |
+| Create Account - Terms | `CreateAccountTermsUI` | ToS toggle, EULA toggle, Promo toggle, Continue |
+| Reset Password | `ForgotPasswordUI` | Email, Continue |
+| Reset Email | `ResetEmailUI` | Email, Confirm Email, Continue |
+| Password Reset Sent | `ForgotPasswordConfirmUI` | Continue, Resend Email |
+| Account Verified | `AccountVerifiedUI` | Continue |
+| Registration Failed | `RegistrationFailedUI` | Try Again |
+| Access Denied | `AccessDeniedUI` | Mensaje de error, Continue |
+
+### Controles del Login
+
+- **Flechas arriba/abajo**: Navegar entre campos y botones
+- **Enter**: En campo de texto → entrar en modo edición; en botón → activar
+- **Enter (en modo edición)**: Salir del modo edición
+- **Escape**: Salir del modo edición / volver
+- **Izquierda/Derecha**: Alternar toggles (ToS, EULA, etc.)
+
+### Modo Edición
+
+Los campos de texto usan un **modo edición** especial:
+
+1. Usuario navega a un campo (ej: "Email: empty")
+2. Presiona **Enter** → escucha "editing"
+3. Escribe texto libremente (las flechas no navegan mientras edita)
+4. Presiona **Enter** → escucha "done", vuelve a navegación
+5. Navega al siguiente campo → escucha "Password: 5 characters entered"
+
+### Lectura de Campos
+
+- **Campos vacíos**: "Email: empty"
+- **Campos con texto**: "Email: user@example.com"
+- **Campos de contraseña**: "Password: 8 characters entered" (no revela contenido)
+- **Toggles**: "Terms of Service: accepted" / "not accepted"
+- **Botones deshabilitados**: "Continue (disabled)"
+
+### TextFieldOption
+
+Clase especial para campos de texto con modo edición:
+- `IsEditing`: Indica si está en modo edición
+- `ToggleEditMode()`: Alterna entre navegación y edición
+- `GetDisplayText()`: Retorna "Label: contenido" o "Label: X characters" para passwords
+
+### LoginBaseUI
+
+Clase base para UIs de login que hereda de `BaseUI`:
+- Maneja el modo edición para campos de texto
+- Bloquea navegación cuando está editando
+- Helpers de reflexión para obtener campos privados
+
+### Clases del Juego (Managers.Login)
+
+```csharp
+LandingStateView              // Pantalla inicial
+LoginStateView                // Login con email/password
+CreateAccountEmailStateView   // Paso 1: email
+CreateAccountUserNamePasswordStateView  // Paso 2: username/password
+CreateAccountTermsStateView   // Paso 3: términos
+ForgotPasswordStateView       // Recuperar contraseña
+ForgotPasswordConfirmView     // Confirmación de reset
+ResetEmailStateView           // Cambiar email
+AccountVerifiedStateView      // Cuenta verificada
+RegistrationFailedStateView   // Error de registro
+AccessDeniedStateView         // Acceso denegado
+```
 
 ---
 
