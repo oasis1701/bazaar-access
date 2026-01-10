@@ -30,9 +30,11 @@ public static class StateChangePatch
     private static Type _eventsType;
     private static Type _replayStateType;
 
-    // Debounce para evitar spam de anuncios
+    // Throttle para evitar spam de anuncios
     private static Coroutine _announceCoroutine = null;
+    private static float _lastAnnounceTime = 0f;
     private const float ANNOUNCE_DEBOUNCE_DELAY = 0.4f; // Segundos de espera antes de anunciar
+    private const float ANNOUNCE_THROTTLE_WINDOW = 1.0f; // Ventana mínima entre anuncios
 
     public static bool IsInCombat => _inCombat;
     public static bool IsInReplayState => _inReplayState;
@@ -448,7 +450,8 @@ public static class StateChangePatch
     {
         // Esperar un poco para que el juego procese la selección
         yield return new UnityEngine.WaitForSeconds(0.3f);
-        TriggerRefreshAndAnnounce();
+        // Solo refresh, los eventos del juego se encargarán del anuncio con debounce
+        TriggerRefresh();
     }
 
     private static void OnBoardChanged()
@@ -484,8 +487,9 @@ public static class StateChangePatch
     private static System.Collections.IEnumerator DelayedRefreshAfterExitReplayState()
     {
         // Múltiples refreshes para capturar cambios tardíos después del ReplayState
+        // No anunciar aquí - los eventos del juego lo harán con debounce
         yield return new UnityEngine.WaitForSeconds(0.3f);
-        TriggerRefreshAndAnnounce();
+        TriggerRefresh();
 
         yield return new UnityEngine.WaitForSeconds(0.5f);
         TriggerRefresh();
@@ -531,8 +535,9 @@ public static class StateChangePatch
     }
 
     /// <summary>
-    /// Dispara un refresh y anuncia el estado actual con debounce.
+    /// Dispara un refresh y anuncia el estado actual con debounce + throttle.
     /// Múltiples llamadas en un corto período se agrupan en un solo anuncio.
+    /// Además, no se permite más de un anuncio por ventana de throttle.
     /// </summary>
     public static void TriggerRefreshAndAnnounce()
     {
@@ -542,10 +547,17 @@ public static class StateChangePatch
         var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
         screen?.RefreshNavigator();
 
-        // Debounce del anuncio
+        // Throttle: si hubo un anuncio reciente, ignorar
+        float timeSinceLastAnnounce = UnityEngine.Time.time - _lastAnnounceTime;
+        if (timeSinceLastAnnounce < ANNOUNCE_THROTTLE_WINDOW)
+        {
+            Plugin.Logger.LogInfo($"TriggerRefreshAndAnnounce: Throttled, {timeSinceLastAnnounce:F2}s since last announce");
+            return;
+        }
+
+        // Debounce: si ya hay un anuncio pendiente, no iniciar otro
         if (_announceCoroutine != null)
         {
-            // Ya hay un anuncio pendiente, se actualizará con el estado más reciente
             Plugin.Logger.LogInfo("TriggerRefreshAndAnnounce: Debouncing, waiting for previous announce");
             return;
         }
@@ -565,18 +577,27 @@ public static class StateChangePatch
 
         if (AccessibilityMgr.GetFocusedUI() != null) yield break;
 
+        // Verificar throttle de nuevo antes de anunciar
+        float timeSinceLastAnnounce = UnityEngine.Time.time - _lastAnnounceTime;
+        if (timeSinceLastAnnounce < ANNOUNCE_THROTTLE_WINDOW)
+        {
+            Plugin.Logger.LogInfo($"DebouncedAnnounce: Throttled at announce time, {timeSinceLastAnnounce:F2}s since last");
+            yield break;
+        }
+
         var screen = AccessibilityMgr.GetCurrentScreen() as GameplayScreen;
         if (screen != null)
         {
             // Refresh final antes de anunciar
             screen.RefreshNavigator();
-            screen.ForceAnnounceState();
+            screen.AnnounceStateImmediate();
+            _lastAnnounceTime = UnityEngine.Time.time;
             Plugin.Logger.LogInfo("DebouncedAnnounce: State announced");
         }
     }
 
     /// <summary>
-    /// Dispara un refresh y anuncia inmediatamente (sin debounce).
+    /// Dispara un refresh y anuncia inmediatamente (sin debounce ni throttle).
     /// Usar solo cuando el anuncio es crítico y no debe agruparse.
     /// </summary>
     public static void TriggerRefreshAndAnnounceImmediate()
@@ -594,7 +615,8 @@ public static class StateChangePatch
         if (screen != null)
         {
             screen.RefreshNavigator();
-            screen.ForceAnnounceState();
+            screen.AnnounceStateImmediate();
+            _lastAnnounceTime = UnityEngine.Time.time;
         }
     }
 

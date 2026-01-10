@@ -624,7 +624,17 @@ public class GameplayScreen : IAccessibleScreen
         TolkWrapper.Speak($"Selecting {name}");
         ActionHelper.SelectEncounter(card);
 
-        Plugin.Instance.StartCoroutine(DelayedRefresh());
+        // StateChangePatch se encargará del anuncio con debounce
+        Plugin.Instance.StartCoroutine(DelayedRefreshOnly());
+    }
+
+    /// <summary>
+    /// Solo hace refresh sin anunciar (el debounce de StateChangePatch se encarga).
+    /// </summary>
+    private System.Collections.IEnumerator DelayedRefreshOnly()
+    {
+        yield return new WaitForSeconds(0.5f);
+        _navigator.Refresh();
     }
 
     private void HandleSellConfirm(Card card)
@@ -802,17 +812,19 @@ public class GameplayScreen : IAccessibleScreen
     }
 
     /// <summary>
-    /// Fuerza el anuncio del estado (simula lo que hace backspace).
+    /// Fuerza el anuncio del estado. Usa el sistema de debounce para evitar spam.
     /// </summary>
     public void ForceAnnounceState()
     {
-        _navigator.AnnounceState();
+        // Usar el sistema de debounce centralizado
+        StateChangePatch.TriggerRefreshAndAnnounce();
     }
 
-    private System.Collections.IEnumerator DelayedRefresh()
+    /// <summary>
+    /// Anuncia inmediatamente sin debounce (para uso interno cuando se necesita).
+    /// </summary>
+    public void AnnounceStateImmediate()
     {
-        yield return new WaitForSeconds(0.5f);
-        _navigator.Refresh();
         _navigator.AnnounceState();
     }
 
@@ -826,19 +838,14 @@ public class GameplayScreen : IAccessibleScreen
         _navigator.Refresh();
 
         // Esperar un poco más para que el nuevo contenido se cargue
-        yield return new WaitForSeconds(0.5f);
+        yield return new WaitForSeconds(0.3f);
         _navigator.Refresh();
 
         // Auto-focus a la sección correcta según el nuevo estado
         var newState = StateChangePatch.GetCurrentRunState();
         AutoFocusForState(newState);
 
-        // Anunciar el nuevo estado
-        _navigator.AnnounceState();
-
-        // Un refresh más por si acaso
-        yield return new WaitForSeconds(0.3f);
-        _navigator.Refresh();
+        // No anunciar aquí - StateChangePatch lo hará con debounce
     }
 
     /// <summary>
@@ -933,9 +940,7 @@ public class GameplayScreen : IAccessibleScreen
         // Ir a la sección de selección sin anunciar (no quedarse en Hero)
         _navigator.SetSectionSilent(NavigationSection.Selection);
 
-        // Anunciar el nuevo estado
-        yield return new WaitForSeconds(0.3f);
-        ForceAnnounceState();
+        // No anunciar aquí - StateChangePatch lo hará con debounce
     }
 
     /// <summary>

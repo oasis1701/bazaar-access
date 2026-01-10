@@ -160,8 +160,8 @@ public static class ReplayStateEnterPatch
         var screen = GameplayPatch.GetGameplayScreen();
         if (screen != null)
         {
+            // OnReplayStateChanged ya anuncia el mensaje, no duplicar
             screen.OnReplayStateChanged(true);
-            TolkWrapper.Speak("Combat finished. Press Enter to continue, R to replay, or E for recap.");
         }
     }
 }
