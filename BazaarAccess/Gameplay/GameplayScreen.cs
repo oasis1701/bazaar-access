@@ -57,7 +57,8 @@ public class GameplayScreen : IAccessibleScreen
                     break;
 
                 case AccessibleKey.Back:
-                    TolkWrapper.Speak("Combat finished. Press Enter to continue, R to replay, or E for recap.");
+                    // Solo recordar brevemente, no repetir el mensaje completo
+                    TolkWrapper.Speak("Post-combat. Enter, R, or E.");
                     break;
 
                 // Ignorar todas las demás teclas durante replay mode
@@ -362,12 +363,8 @@ public class GameplayScreen : IAccessibleScreen
             return; // El anuncio de combate se hace en OnCombatStateChanged
         }
 
-        // Anunciar el cambio de estado
-        if (announceChange && stateChanged)
-        {
-            string stateDesc = StateChangePatch.GetStateDescription(newState);
-            TolkWrapper.Speak(stateDesc);
-        }
+        // No anunciar aquí - el sistema de debounce en StateChangePatch lo hará
+        // Esto evita duplicados
 
         // Hacer refresh y auto-focus
         Plugin.Instance.StartCoroutine(RefreshAndAutoFocus(newState, stateChanged));
@@ -573,7 +570,7 @@ public class GameplayScreen : IAccessibleScreen
     }
 
     /// <summary>
-    /// Coroutine para refresh después de seleccionar loot.
+    /// Coroutine para refresh después de seleccionar loot/skill.
     /// </summary>
     private System.Collections.IEnumerator DelayedRefreshAfterLoot()
     {
@@ -581,24 +578,12 @@ public class GameplayScreen : IAccessibleScreen
         yield return new WaitForSeconds(0.3f);
         _navigator.Refresh();
 
-        // Verificar si el estado cambió automáticamente (auto-exit)
-        var currentState = StateChangePatch.GetCurrentRunState();
-        if (currentState != ERunState.Loot)
+        // Solo anunciar si hay más items, sin decir el número
+        if (_navigator.HasSelectionContent())
         {
-            // El estado cambió, anunciar el nuevo estado
-            OnStateChanged(currentState, true);
-        }
-        else if (_navigator.HasSelectionContent())
-        {
-            // Aún hay más rewards, anunciar cuántos quedan
-            int remaining = _navigator.GetSelectionCardCount();
-            TolkWrapper.Speak($"{remaining} rewards remaining");
             _navigator.AnnounceCurrentItem();
         }
-        else
-        {
-            TolkWrapper.Speak("All rewards collected");
-        }
+        // Si no hay más, el sistema de eventos anunciará el nuevo estado
     }
 
     private void SelectSkill(Card card)
@@ -613,15 +598,10 @@ public class GameplayScreen : IAccessibleScreen
 
     private void SelectEncounterDirect(Card card)
     {
+        // Solo decir el nombre, sin "Selecting"
         string name = ItemReader.GetCardName(card);
+        TolkWrapper.Speak(name);
 
-        string flavorText = ItemReader.GetFlavorText(card);
-        if (!string.IsNullOrEmpty(flavorText))
-        {
-            TolkWrapper.Speak(flavorText);
-        }
-
-        TolkWrapper.Speak($"Selecting {name}");
         ActionHelper.SelectEncounter(card);
 
         // StateChangePatch se encargará del anuncio con debounce
@@ -857,12 +837,10 @@ public class GameplayScreen : IAccessibleScreen
 
         if (inCombat)
         {
-            TolkWrapper.Speak("Entering combat. Press V for your stats, F for enemy stats.");
+            // Mensaje corto
+            TolkWrapper.Speak("Combat");
         }
-        else
-        {
-            TolkWrapper.Speak("Exiting combat.");
-        }
+        // No anunciar "Exiting combat" - el siguiente estado lo dirá
     }
 
     /// <summary>
@@ -917,7 +895,8 @@ public class GameplayScreen : IAccessibleScreen
 
         if (inReplayState)
         {
-            TolkWrapper.Speak("Combat finished. Press Enter to continue, R to replay, or E for recap.");
+            // Mensaje corto - el usuario aprenderá los controles
+            TolkWrapper.Speak("Combat ended. Enter to continue.");
         }
         else
         {

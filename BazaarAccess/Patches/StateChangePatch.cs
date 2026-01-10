@@ -313,6 +313,7 @@ public static class StateChangePatch
 
     /// <summary>
     /// Cuando termina una transición del tablero (animaciones completas).
+    /// Este es el evento PRINCIPAL para anunciar - los demás solo hacen refresh.
     /// </summary>
     private static void OnBoardTransitionFinished()
     {
@@ -326,7 +327,8 @@ public static class StateChangePatch
     private static void OnNewDayTransitionFinished()
     {
         Plugin.Logger.LogInfo("NewDayTransitionAnimationFinished - UI ready");
-        TriggerRefreshAndAnnounce();
+        // Solo refresh, BoardTransitionFinished anunciará
+        TriggerRefresh();
     }
 
     /// <summary>
@@ -335,7 +337,8 @@ public static class StateChangePatch
     private static void OnItemCardsRevealed()
     {
         Plugin.Logger.LogInfo("ItemCardsRevealed - Cards ready");
-        TriggerRefreshAndAnnounce();
+        // Solo refresh, BoardTransitionFinished anunciará
+        TriggerRefresh();
     }
 
     /// <summary>
@@ -344,7 +347,8 @@ public static class StateChangePatch
     private static void OnSkillCardsRevealed()
     {
         Plugin.Logger.LogInfo("SkillCardsRevealed - Skills ready");
-        TriggerRefreshAndAnnounce();
+        // Solo refresh, BoardTransitionFinished anunciará
+        TriggerRefresh();
     }
 
     /// <summary>
@@ -362,7 +366,8 @@ public static class StateChangePatch
     private static void OnEncounterEntered()
     {
         Plugin.Logger.LogInfo("AppState.EncounterEntered");
-        TriggerRefreshAndAnnounce();
+        // Solo refresh, el siguiente BoardTransitionFinished anunciará
+        TriggerRefresh();
     }
 
     /// <summary>
@@ -398,13 +403,15 @@ public static class StateChangePatch
     private static void OnCardPurchased(GameSimEventCardPurchased evt)
     {
         Plugin.Logger.LogInfo($"Card purchased: {evt.InstanceId}");
-        TriggerRefreshAndAnnounce();
+        // Solo refresh - ActionHelper ya anunció "Bought X"
+        TriggerRefresh();
     }
 
     private static void OnCardSold(GameSimEventCardSold evt)
     {
         Plugin.Logger.LogInfo($"Card sold: {evt.InstanceId}");
-        TriggerRefreshAndAnnounce();
+        // Solo refresh - ActionHelper ya anunció "Sold X"
+        TriggerRefresh();
     }
 
     private static void OnSkillEquipped(GameSimEventPlayerSkillEquipped evt)
@@ -428,7 +435,8 @@ public static class StateChangePatch
     private static void OnCardDisposed(List<Card> cards)
     {
         Plugin.Logger.LogInfo($"Cards disposed: {cards?.Count ?? 0}");
-        TriggerRefreshAndAnnounce();
+        // Solo refresh - la selección/transición ya fue anunciada
+        TriggerRefresh();
     }
 
     private static void OnCardSelected()

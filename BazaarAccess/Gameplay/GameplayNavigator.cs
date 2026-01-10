@@ -894,71 +894,32 @@ public class GameplayNavigator
 
     // --- Anuncios ---
 
+    /// <summary>
+    /// Anuncia el estado actual de forma muy simple.
+    /// Solo dice el nombre del estado, sin detalles extras.
+    /// </summary>
     public void AnnounceState()
     {
         Refresh();
 
         var runState = GetCurrentState();
-        int selCount = _selectionItems.Count;
-        int boardCount = _boardIndices.Count;
 
-        // Contar solo cartas (no Exit/Reroll)
-        int cardCount = _selectionItems.Count(i => i.Type == NavItemType.Card);
-
-        var parts = new List<string>();
-
-        // Anuncio simplificado según el estado
-        switch (runState)
+        // Anuncio ultra-simplificado: solo el estado
+        string announcement = runState switch
         {
-            case ERunState.Choice:
-                parts.Add("Shop");
-                if (cardCount > 0) parts.Add($"{cardCount} items");
-                break;
+            ERunState.Choice => "Shop",
+            ERunState.Encounter => "Encounters",
+            ERunState.Loot => "Loot",
+            ERunState.LevelUp => "Level up",
+            ERunState.Pedestal => "Upgrade",
+            ERunState.Combat => "Combat",
+            ERunState.PVPCombat => "PvP",
+            ERunState.EndRunVictory => "Victory",
+            ERunState.EndRunDefeat => "Defeat",
+            _ => GetStateDescription()
+        };
 
-            case ERunState.Encounter:
-                parts.Add($"{cardCount} encounters");
-                break;
-
-            case ERunState.Loot:
-                parts.Add($"{cardCount} rewards");
-                break;
-
-            case ERunState.LevelUp:
-                parts.Add("Level up");
-                if (cardCount > 0) parts.Add($"{cardCount} skills");
-                break;
-
-            case ERunState.Pedestal:
-                parts.Add("Upgrade");
-                break;
-
-            default:
-                parts.Add(GetStateDescription());
-                if (cardCount > 0)
-                {
-                    string type = GetSelectionTypeName();
-                    parts.Add($"{cardCount} {type}");
-                }
-                break;
-        }
-
-        // Indicar si auto-sale después de seleccionar
-        if (cardCount > 0 && WillAutoExit())
-        {
-            parts.Add("select to continue");
-        }
-
-        if (boardCount > 0)
-        {
-            parts.Add($"{boardCount} items on board");
-        }
-
-        TolkWrapper.Speak(string.Join(", ", parts));
-
-        if (GetCurrentSectionCount() > 0)
-        {
-            AnnounceCurrentItem();
-        }
+        TolkWrapper.Speak(announcement);
     }
 
     private string GetSelectionTypeName()
