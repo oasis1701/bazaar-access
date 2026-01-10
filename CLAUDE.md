@@ -637,6 +637,7 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
 - ✅ **Mensajes del tutorial en buffer**: Releer con punto/coma
 - ✅ **Fix duplicados**: Eliminados mensajes duplicados (stash, end of run)
 - ✅ **Sistema de Login Accesible**: Menús de inicio de sesión y creación de cuenta
+- ✅ **FTUE no bloquea gameplay**: Tutorial permite navegación normal mientras muestra diálogos
 
 ---
 
@@ -784,14 +785,41 @@ El tutorial del juego (First Time User Experience) es accesible mediante `Tutori
 - Detecta diálogos de tutorial (`SequenceDialogController`, `FullScreenPopupDialogController`)
 - Lee automáticamente el texto cuando aparece un diálogo
 - Los mensajes se añaden al `MessageBuffer` para poder releerlos
+- **El tutorial NO bloquea la navegación** - el usuario puede interactuar con el juego mientras el diálogo está visible
+
+### Gameplay Durante el Tutorial
+
+El tutorial del juego muestra diálogos pero NO bloquea la interacción. El mod replica este comportamiento:
+- Los diálogos del tutorial se leen automáticamente
+- El usuario puede navegar tienda/encounters/skills con las teclas normales (flechas, Tab, B, V, C, etc.)
+- Presionar **Enter** avanza el tutorial al siguiente paso
+- El `GameplayScreen` recibe todas las teclas de navegación aunque haya un diálogo activo
 
 ### Controles del Tutorial
 
-- **Enter**: Continuar al siguiente paso
-- **Flechas**: Navegar Previous/Next (solo en popups fullscreen)
+- **Enter**: Continuar al siguiente paso del tutorial
+- **Flechas/Tab/B/V/C/etc.**: Navegar el juego normalmente
 - **. (punto)**: Leer último mensaje del buffer
 - **, (coma)**: Leer mensaje anterior del buffer
 - **F1**: Ayuda
+
+### Flujo Durante el FTUE
+
+```
+[Diálogo del tutorial aparece]
+     ↓
+TutorialUI lee el texto automáticamente
+     ↓
+[Usuario puede navegar normalmente]
+  - Flechas navegan items
+  - Enter en item compra/selecciona
+  - Enter (sin item seleccionado) avanza tutorial
+     ↓
+[Condición del tutorial se cumple]
+  (ej: usuario compró el item correcto)
+     ↓
+[Siguiente diálogo del tutorial]
+```
 
 ### Importante: Conflictos de Teclas
 

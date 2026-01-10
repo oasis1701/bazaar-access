@@ -3,6 +3,7 @@ using System.Reflection;
 using BazaarAccess.Accessibility;
 using BazaarAccess.Core;
 using BazaarAccess.Gameplay;
+using BazaarAccess.Patches;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
@@ -54,35 +55,17 @@ public class TutorialUI : IAccessibleUI
                 }
                 break;
 
-            case AccessibleKey.Left:
-            case AccessibleKey.Up:
-                if (_isFullScreen && _hasPrevButton)
-                {
-                    _currentOption = 1;
-                    TolkWrapper.Speak("Previous");
-                }
-                break;
-
-            case AccessibleKey.Right:
-            case AccessibleKey.Down:
-                if (_isFullScreen && _hasPrevButton)
-                {
-                    _currentOption = 0;
-                    TolkWrapper.Speak("Next");
-                }
-                break;
-
             // No usar Escape/Back - abre el menú de opciones del juego
             // Usar Period/Comma para releer mensajes del buffer
 
             case AccessibleKey.Help:
                 if (_isFullScreen && _hasPrevButton)
                 {
-                    TolkWrapper.Speak("Tutorial. Use arrows to select Previous or Next. Press Enter to continue. Period or comma to re-read.");
+                    TolkWrapper.Speak("Tutorial active. Use arrows to navigate game. Press Enter to continue tutorial. Period or comma to re-read.");
                 }
                 else
                 {
-                    TolkWrapper.Speak("Tutorial. Press Enter to continue. Period or comma to re-read messages.");
+                    TolkWrapper.Speak("Tutorial active. Use arrows to navigate game. Press Enter to continue tutorial. Period or comma to re-read messages.");
                 }
                 break;
 
@@ -94,6 +77,24 @@ public class TutorialUI : IAccessibleUI
             case AccessibleKey.PrevMessage:
                 MessageBuffer.ReadPrevious();
                 break;
+
+            // IMPORTANTE: Pasar todas las demás teclas al GameplayScreen
+            // El tutorial del juego NO bloquea la interacción, así que tampoco debemos bloquearla
+            default:
+                PassToGameplayScreen(key);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Pasa una tecla al GameplayScreen para que el usuario pueda navegar durante el tutorial.
+    /// </summary>
+    private void PassToGameplayScreen(AccessibleKey key)
+    {
+        var gameplayScreen = GameplayPatch.GetGameplayScreen();
+        if (gameplayScreen != null && gameplayScreen.IsValid())
+        {
+            gameplayScreen.HandleInput(key);
         }
     }
 
