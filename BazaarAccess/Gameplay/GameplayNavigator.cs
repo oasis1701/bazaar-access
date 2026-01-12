@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using BazaarAccess.Core;
 using BazaarAccess.Patches;
 using BazaarGameClient.Domain.Models;
@@ -8,6 +9,7 @@ using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Runs;
 using TheBazaar;
 using TheBazaar.AppFramework;
+using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace BazaarAccess.Gameplay;
@@ -475,10 +477,11 @@ public class GameplayNavigator
                     var eventSystem = EventSystem.current;
                     var pointerData = new PointerEventData(eventSystem)
                     {
-                        position = UnityEngine.Input.mousePosition
+                        position = Vector2.zero
                     };
                     controller.OnPointerEnter(pointerData);
                     controller.HoverMove();
+                    TriggerHoverSound(controller);
                 }
             }
         }
@@ -873,10 +876,11 @@ public class GameplayNavigator
             var eventSystem = EventSystem.current;
             var pointerData = new PointerEventData(eventSystem)
             {
-                position = UnityEngine.Input.mousePosition
+                position = Vector2.zero
             };
             controller.OnPointerEnter(pointerData);
             controller.HoverMove();
+            TriggerHoverSound(controller);
         }
     }
 
@@ -1880,24 +1884,94 @@ public class GameplayNavigator
                 ResetAllCardSelections(bm);
 
                 // Simular un evento de puntero para activar la selección completa
-                // Esto dispara: animación de hover + sonidos + tooltips
                 var eventSystem = EventSystem.current;
                 var pointerData = new PointerEventData(eventSystem)
                 {
-                    position = UnityEngine.Input.mousePosition
+                    position = Vector2.zero
                 };
 
                 // Llamar a OnPointerEnter que activa Select() internamente
-                // Esto incluye sonidos y tooltips
                 controller.OnPointerEnter(pointerData);
 
                 // Asegurarnos de que la animación de hover se ejecute
                 controller.HoverMove();
+
+                // Reproducir sonido de hover según el tipo de controller
+                TriggerHoverSound(controller);
             }
         }
         catch (System.Exception ex)
         {
             Plugin.Logger.LogWarning($"TriggerVisualSelection error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Reproduce el sonido de hover apropiado según el tipo de controller.
+    /// </summary>
+    private void TriggerHoverSound(CardController controller)
+    {
+        try
+        {
+            Vector3 position = controller.transform.position;
+            var controllerType = controller.GetType();
+
+            Plugin.Logger.LogInfo($"TriggerHoverSound: controller type = {controllerType.Name}");
+
+            // Para EncounterController, usar soundPortraitHandler
+            if (controller is EncounterController encounterController)
+            {
+                // El campo es 'internal', buscar con todos los flags
+                var handlerField = controllerType.GetField("soundPortraitHandler",
+                    BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+
+                Plugin.Logger.LogInfo($"TriggerHoverSound: soundPortraitHandler field = {handlerField != null}");
+
+                if (handlerField != null)
+                {
+                    var handler = handlerField.GetValue(encounterController);
+                    Plugin.Logger.LogInfo($"TriggerHoverSound: handler = {handler != null}");
+
+                    if (handler != null)
+                    {
+                        var method = handler.GetType().GetMethod("SoundPortraitHover",
+                            BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+
+                        Plugin.Logger.LogInfo($"TriggerHoverSound: method = {method != null}");
+
+                        if (method != null)
+                        {
+                            method.Invoke(handler, new object[] { position });
+                            Plugin.Logger.LogInfo($"TriggerHoverSound: Sound played for encounter");
+                        }
+                    }
+                }
+            }
+            // Para ItemController, usar soundCardHandler
+            else if (controller is ItemController itemController)
+            {
+                var handlerField = controllerType.GetField("soundCardHandler",
+                    BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+
+                if (handlerField != null)
+                {
+                    var handler = handlerField.GetValue(itemController);
+                    if (handler != null)
+                    {
+                        var method = handler.GetType().GetMethod("SoundCardRaise",
+                            BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
+                        method?.Invoke(handler, new object[] { position });
+                    }
+                }
+            }
+            else
+            {
+                Plugin.Logger.LogInfo($"TriggerHoverSound: Unknown controller type, no sound");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogWarning($"TriggerHoverSound error: {ex.Message}");
         }
     }
 

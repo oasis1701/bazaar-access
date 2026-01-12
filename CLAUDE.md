@@ -750,6 +750,11 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - ItemReader.GetEncounterDetailedInfo() same fix
   - GameplayNavigator.ReadEnemyInfo() now checks `ERunState.PVPCombat` before using SimPvpOpponent
   - CombatDescriber.OnEffectTriggered() verifies game state to ignore late events from previous combat
+- ✅ **Hover sounds for keyboard navigation**: Cards now play hover sounds when navigating with keyboard
+  - EncounterController: plays `SoundPortraitHover` via `soundPortraitHandler`
+  - ItemController: plays `SoundCardRaise` via `soundCardHandler`
+  - Works for items, encounters, skills, and enemy items
+  - Fixed `UnityEngine.Input.mousePosition` error (game uses new Input System)
 
 ---
 
