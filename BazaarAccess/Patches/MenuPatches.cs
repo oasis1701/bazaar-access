@@ -118,6 +118,7 @@ public static class ProfileCareerAwakePatch
 /// <summary>
 /// Shows chest rewards after a chest is opened.
 /// We hook into the CollectionsPopulated event which fires after the chest animation.
+/// Also handles the CollectionsItemDialogue for new cosmetics.
 /// </summary>
 public static class ChestRewardsPatch
 {
@@ -127,6 +128,7 @@ public static class ChestRewardsPatch
     private static System.Reflection.MethodInfo _addListenerMethod = null;
     private static System.Reflection.MethodInfo _removeListenerMethod = null;
     private static System.Action _onChestOpenedDelegate = null;
+    private static System.Action _onCollectionDialogueShownDelegate = null;
 
     public static void Subscribe(ChestSceneController controller)
     {
@@ -174,6 +176,9 @@ public static class ChestRewardsPatch
             _onChestOpenedDelegate = OnChestOpened;
             _addListenerMethod.Invoke(_collectionsPopulatedEvent, new object[] { _onChestOpenedDelegate });
 
+            // Subscribe to CollectionsItemDialogue.OnShowCompleted
+            SubscribeToCollectionDialogue(controller);
+
             _isSubscribed = true;
             Plugin.Logger.LogInfo("ChestRewardsPatch: Subscribed to CollectionsPopulated");
         }
@@ -181,6 +186,45 @@ public static class ChestRewardsPatch
         {
             Plugin.Logger.LogError($"ChestRewardsPatch: Error subscribing: {e.Message}");
         }
+    }
+
+    private static void SubscribeToCollectionDialogue(ChestSceneController controller)
+    {
+        try
+        {
+            var dialogue = controller.CollectionsItemDialogue;
+            if (dialogue == null)
+            {
+                Plugin.Logger.LogWarning("ChestRewardsPatch: CollectionsItemDialogue is null");
+                return;
+            }
+
+            // Subscribe to OnShowCompleted event
+            _onCollectionDialogueShownDelegate = OnCollectionDialogueShown;
+            dialogue.OnShowCompleted += _onCollectionDialogueShownDelegate;
+
+            Plugin.Logger.LogInfo("ChestRewardsPatch: Subscribed to CollectionsItemDialogue.OnShowCompleted");
+        }
+        catch (System.Exception e)
+        {
+            Plugin.Logger.LogError($"ChestRewardsPatch: Error subscribing to dialogue: {e.Message}");
+        }
+    }
+
+    private static void UnsubscribeFromCollectionDialogue()
+    {
+        try
+        {
+            if (_currentController?.CollectionsItemDialogue != null && _onCollectionDialogueShownDelegate != null)
+            {
+                _currentController.CollectionsItemDialogue.OnShowCompleted -= _onCollectionDialogueShownDelegate;
+            }
+        }
+        catch (System.Exception e)
+        {
+            Plugin.Logger.LogWarning($"ChestRewardsPatch: Error unsubscribing from dialogue: {e.Message}");
+        }
+        _onCollectionDialogueShownDelegate = null;
     }
 
     public static void Unsubscribe()
@@ -193,6 +237,8 @@ public static class ChestRewardsPatch
             {
                 _removeListenerMethod.Invoke(_collectionsPopulatedEvent, new object[] { _onChestOpenedDelegate });
             }
+
+            UnsubscribeFromCollectionDialogue();
         }
         catch (System.Exception e)
         {
@@ -223,8 +269,40 @@ public static class ChestRewardsPatch
             return;
         }
 
+        // Check if the collection item dialogue will be shown
+        // If debugDisplayNewlyAcquiredItem is true, the game will show CollectionsItemDialogue
+        // and we should wait for that instead
+        if (_currentController.debugDisplayNewlyAcquiredItem)
+        {
+            Plugin.Logger.LogInfo("ChestRewardsPatch: New item dialogue will be shown, waiting...");
+            // Don't show ChestRewardsUI - OnCollectionDialogueShown will handle it
+            return;
+        }
+
         // Create and show the rewards UI
         var ui = new ChestRewardsUI(_currentController.transform, rewards);
+        AccessibilityMgr.ShowUI(ui);
+    }
+
+    private static void OnCollectionDialogueShown()
+    {
+        Plugin.Logger.LogInfo("ChestRewardsPatch: Collection item dialogue shown");
+
+        if (_currentController == null)
+        {
+            TolkWrapper.Speak("New item. Press Enter to continue.");
+            return;
+        }
+
+        // Close any existing ChestRewardsUI first
+        var currentUI = AccessibilityMgr.GetFocusedUI();
+        if (currentUI is ChestRewardsUI)
+        {
+            AccessibilityMgr.PopUI();
+        }
+
+        // Show the collection item UI
+        var ui = new CollectionItemUI(_currentController.transform, _currentController);
         AccessibilityMgr.ShowUI(ui);
     }
 }

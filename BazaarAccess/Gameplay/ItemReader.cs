@@ -6,6 +6,8 @@ using System.Text.RegularExpressions;
 using BazaarAccess.Core;
 using BazaarGameClient.Domain.Models.Cards;
 using BazaarGameClient.Domain.Tooltips;
+using BazaarGameShared.Domain.Cards.Enchantments;
+using BazaarGameShared.Domain.Cards.Item;
 using BazaarGameShared.Domain.Core;
 using BazaarGameShared.Domain.Core.Types;
 using BazaarGameShared.Domain.Tooltips;
@@ -240,15 +242,51 @@ public static class ItemReader
         if (card == null) return "Empty";
 
         var template = card.Template;
+        string baseName = string.Empty;
+
         if (template?.Localization?.Title != null)
         {
-            string name = GetLocalizedText(template.Localization.Title);
-            if (!string.IsNullOrEmpty(name))
-                return name;
+            baseName = GetLocalizedText(template.Localization.Title);
         }
 
-        // Fallback al nombre interno
-        return template?.InternalName ?? "Unknown";
+        if (string.IsNullOrEmpty(baseName))
+        {
+            baseName = template?.InternalName ?? "Unknown";
+        }
+
+        // Check if the card is enchanted and prepend enchantment name
+        if (card is ItemCard itemCard && itemCard.Enchantment.HasValue)
+        {
+            string enchantName = GetEnchantmentName(itemCard.Enchantment.Value);
+            if (!string.IsNullOrEmpty(enchantName))
+            {
+                return $"{enchantName} {baseName}";
+            }
+        }
+
+        return baseName;
+    }
+
+    /// <summary>
+    /// Gets the localized name of an enchantment type.
+    /// </summary>
+    public static string GetEnchantmentName(EEnchantmentType enchantment)
+    {
+        try
+        {
+            // Try to get localized name from the game's localization system
+            var locText = new LocalizableText(enchantment.ToString());
+            string localized = locText.GetLocalizedText();
+            if (!string.IsNullOrEmpty(localized))
+                return localized;
+
+            // Fallback to enum name
+            return enchantment.ToString();
+        }
+        catch
+        {
+            return enchantment.ToString();
+        }
     }
 
     /// <summary>
@@ -611,25 +649,80 @@ public static class ItemReader
         if (card == null) return string.Empty;
 
         var template = card.Template;
-        var tooltips = template?.Localization?.Tooltips;
-        if (tooltips == null || tooltips.Count == 0) return string.Empty;
-
         var sb = new StringBuilder();
 
-        foreach (var tooltip in tooltips)
+        // Get base tooltips from template
+        var tooltips = template?.Localization?.Tooltips;
+        if (tooltips != null && tooltips.Count > 0)
         {
-            if (tooltip?.Content != null)
+            foreach (var tooltip in tooltips)
             {
-                string text = GetLocalizedTextWithValues(tooltip.Content, card);
-                if (!string.IsNullOrEmpty(text))
+                if (tooltip?.Content != null)
                 {
-                    if (sb.Length > 0) sb.Append(". ");
-                    sb.Append(text);
+                    string text = GetLocalizedTextWithValues(tooltip.Content, card);
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        if (sb.Length > 0) sb.Append(". ");
+                        sb.Append(text);
+                    }
                 }
             }
         }
 
+        // Get enchantment tooltips if the card is enchanted
+        if (card is ItemCard itemCard && itemCard.Enchantment.HasValue)
+        {
+            var enchantmentTooltips = GetEnchantmentTooltips(itemCard);
+            if (!string.IsNullOrEmpty(enchantmentTooltips))
+            {
+                if (sb.Length > 0) sb.Append(". ");
+                sb.Append(enchantmentTooltips);
+            }
+        }
+
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Gets the tooltips from an item's enchantment.
+    /// </summary>
+    private static string GetEnchantmentTooltips(ItemCard itemCard)
+    {
+        if (!itemCard.Enchantment.HasValue) return string.Empty;
+
+        try
+        {
+            var template = itemCard.Template as TCardItem;
+            if (template == null) return string.Empty;
+
+            // Try to get enchantment template
+            if (!template.TryGetEnchantmentTemplate(itemCard.Enchantment.Value, out TEnchantment enchantmentTemplate))
+                return string.Empty;
+
+            if (enchantmentTemplate?.Localization?.Tooltips == null)
+                return string.Empty;
+
+            var sb = new StringBuilder();
+            foreach (var tooltip in enchantmentTemplate.Localization.Tooltips)
+            {
+                if (tooltip?.Content != null)
+                {
+                    string text = GetLocalizedTextWithValues(tooltip.Content, itemCard);
+                    if (!string.IsNullOrEmpty(text))
+                    {
+                        if (sb.Length > 0) sb.Append(". ");
+                        sb.Append(text);
+                    }
+                }
+            }
+
+            return sb.ToString();
+        }
+        catch (Exception ex)
+        {
+            Plugin.Logger.LogWarning($"GetEnchantmentTooltips error: {ex.Message}");
+            return string.Empty;
+        }
     }
 
     /// <summary>
@@ -681,6 +774,13 @@ public static class ItemReader
         if (!string.IsNullOrEmpty(tempState))
         {
             lines.Add($"State: {tempState}");
+        }
+
+        // Enchantment status
+        if (card is ItemCard enchantedItem && enchantedItem.Enchantment.HasValue)
+        {
+            string enchantName = GetEnchantmentName(enchantedItem.Enchantment.Value);
+            lines.Add($"Enchanted: {enchantName}");
         }
 
         // Tamaño con nombre descriptivo

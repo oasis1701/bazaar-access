@@ -145,16 +145,14 @@ public class AccessibleMenu
         if (currentVisibleIndex < 0) currentVisibleIndex = 0;
         int newVisibleIndex = currentVisibleIndex + direction;
 
-        // No wrap - stay at limits
+        // No wrap - stay at limits, just read current item
         if (newVisibleIndex < 0)
         {
-            TolkWrapper.Speak("Start of list");
-            return;
+            newVisibleIndex = 0;
         }
         if (newVisibleIndex >= visibleOptions.Count)
         {
-            TolkWrapper.Speak("End of list");
-            return;
+            newVisibleIndex = visibleOptions.Count - 1;
         }
 
         _currentIndex = visibleOptions[newVisibleIndex].Index;
@@ -209,24 +207,14 @@ public class AccessibleMenu
         // Move by 10 items
         int newVisibleIndex = currentVisibleIndex + (direction * 10);
 
-        // Clamp to bounds
+        // Clamp to bounds, just read current item at limits
         if (newVisibleIndex < 0)
         {
             newVisibleIndex = 0;
-            if (currentVisibleIndex == 0)
-            {
-                TolkWrapper.Speak("Start of list");
-                return;
-            }
         }
         if (newVisibleIndex >= visibleOptions.Count)
         {
             newVisibleIndex = visibleOptions.Count - 1;
-            if (currentVisibleIndex == visibleOptions.Count - 1)
-            {
-                TolkWrapper.Speak("End of list");
-                return;
-            }
         }
 
         _currentIndex = visibleOptions[newVisibleIndex].Index;

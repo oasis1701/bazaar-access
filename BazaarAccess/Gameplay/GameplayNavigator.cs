@@ -1004,7 +1004,15 @@ public class GameplayNavigator
         // No wrap - stay at end
         if (_currentIndex >= count - 1)
         {
-            TolkWrapper.Speak("End of list");
+            // Only Board shows limit messages, others just read current item
+            if (_currentSection == NavigationSection.Board)
+            {
+                TolkWrapper.Speak("End of list");
+                return;
+            }
+            // For other sections, just read the last item again
+            AnnounceCurrentItem();
+            TriggerVisualSelection();
             return;
         }
 
@@ -1024,7 +1032,15 @@ public class GameplayNavigator
         // No wrap - stay at start
         if (_currentIndex <= 0)
         {
-            TolkWrapper.Speak("Start of list");
+            // Only Board shows limit messages, others just read current item
+            if (_currentSection == NavigationSection.Board)
+            {
+                TolkWrapper.Speak("Start of list");
+                return;
+            }
+            // For other sections, just read the first item again
+            AnnounceCurrentItem();
+            TriggerVisualSelection();
             return;
         }
 
@@ -1085,10 +1101,10 @@ public class GameplayNavigator
 
         int newIndex = _currentIndex + (direction * 10);
 
-        // Clamp to bounds
+        // Clamp to bounds - only Board shows limit messages
         if (newIndex < 0)
         {
-            if (_currentIndex == 0)
+            if (_currentIndex == 0 && _currentSection == NavigationSection.Board)
             {
                 TolkWrapper.Speak("Start of list");
                 return;
@@ -1097,7 +1113,7 @@ public class GameplayNavigator
         }
         if (newIndex >= count)
         {
-            if (_currentIndex == count - 1)
+            if (_currentIndex == count - 1 && _currentSection == NavigationSection.Board)
             {
                 TolkWrapper.Speak("End of list");
                 return;
@@ -1907,50 +1923,19 @@ public class GameplayNavigator
     }
 
     /// <summary>
-    /// Reproduce el sonido de hover apropiado según el tipo de controller.
+    /// Reproduce el sonido de hover para tipos de controller que no lo hacen en HoverMove().
+    /// Nota: EncounterController ya reproduce sonido en HoverMove(), solo necesitamos esto para ItemController.
     /// </summary>
     private void TriggerHoverSound(CardController controller)
     {
         try
         {
-            Vector3 position = controller.transform.position;
-            var controllerType = controller.GetType();
-
-            Plugin.Logger.LogInfo($"TriggerHoverSound: controller type = {controllerType.Name}");
-
-            // Para EncounterController, usar soundPortraitHandler
-            if (controller is EncounterController encounterController)
+            // EncounterController ya reproduce sonido en su override de HoverMove()
+            // Solo necesitamos manejar ItemController que no sobreescribe HoverMove()
+            if (controller is ItemController itemController)
             {
-                // El campo es 'internal', buscar con todos los flags
-                var handlerField = controllerType.GetField("soundPortraitHandler",
-                    BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
-
-                Plugin.Logger.LogInfo($"TriggerHoverSound: soundPortraitHandler field = {handlerField != null}");
-
-                if (handlerField != null)
-                {
-                    var handler = handlerField.GetValue(encounterController);
-                    Plugin.Logger.LogInfo($"TriggerHoverSound: handler = {handler != null}");
-
-                    if (handler != null)
-                    {
-                        var method = handler.GetType().GetMethod("SoundPortraitHover",
-                            BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
-
-                        Plugin.Logger.LogInfo($"TriggerHoverSound: method = {method != null}");
-
-                        if (method != null)
-                        {
-                            method.Invoke(handler, new object[] { position });
-                            Plugin.Logger.LogInfo($"TriggerHoverSound: Sound played for encounter");
-                        }
-                    }
-                }
-            }
-            // Para ItemController, usar soundCardHandler
-            else if (controller is ItemController itemController)
-            {
-                var handlerField = controllerType.GetField("soundCardHandler",
+                Vector3 position = controller.transform.position;
+                var handlerField = typeof(ItemController).GetField("soundCardHandler",
                     BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Instance);
 
                 if (handlerField != null)
@@ -1964,9 +1949,10 @@ public class GameplayNavigator
                     }
                 }
             }
-            else
+            // SkillController tampoco sobreescribe HoverMove() con sonido
+            else if (controller is SkillController skillController)
             {
-                Plugin.Logger.LogInfo($"TriggerHoverSound: Unknown controller type, no sound");
+                // Skills no tienen sonido de hover específico en el juego vanilla
             }
         }
         catch (System.Exception ex)

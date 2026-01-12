@@ -763,6 +763,12 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - ItemController: plays `SoundCardRaise` via `soundCardHandler`
   - Works for items, encounters, skills, and enemy items
   - Fixed `UnityEngine.Input.mousePosition` error (game uses new Input System)
+- ✅ **Enchantment support**: Enchanted items now show enchantment name and properties
+  - `GetCardName()` prepends enchantment name (e.g., "Radiant Water Dagger")
+  - `GetAbilityTooltips()` includes enchantment tooltips (e.g., Crit Chance)
+  - `GetDetailLines()` shows "Enchanted: Type" line in Ctrl+Up/Down navigation
+- ✅ **Simplified menu limits**: Menus read current item at limits instead of "Start/End of list"
+  - Only Board section during gameplay keeps limit messages
 
 ---
 
