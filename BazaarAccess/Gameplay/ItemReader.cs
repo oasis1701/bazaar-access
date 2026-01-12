@@ -334,8 +334,46 @@ public static class ItemReader
     }
 
     /// <summary>
+    /// Obtiene el estado de temperatura de un item (Heated/Chilled para Jules).
+    /// </summary>
+    public static string GetTemperatureState(Card card)
+    {
+        if (card == null) return string.Empty;
+
+        bool isHeated = card.GetAttributeValue(ECardAttributeType.Heated) > 0;
+        bool isChilled = card.GetAttributeValue(ECardAttributeType.Chilled) > 0;
+
+        if (isHeated && isChilled)
+            return "Heated and Chilled";
+        if (isHeated)
+            return "Heated";
+        if (isChilled)
+            return "Chilled";
+
+        return string.Empty;
+    }
+
+    /// <summary>
+    /// Verifica si un item está Heated (caliente).
+    /// </summary>
+    public static bool IsHeated(Card card)
+    {
+        if (card == null) return false;
+        return card.GetAttributeValue(ECardAttributeType.Heated) > 0;
+    }
+
+    /// <summary>
+    /// Verifica si un item está Chilled (frío).
+    /// </summary>
+    public static bool IsChilled(Card card)
+    {
+        if (card == null) return false;
+        return card.GetAttributeValue(ECardAttributeType.Chilled) > 0;
+    }
+
+    /// <summary>
     /// Obtiene un resumen corto del item para navegación rápida.
-    /// Formato: "Nombre, Tier"
+    /// Formato: "Nombre, Tier" o "Nombre, Tier, Heated/Chilled"
     /// </summary>
     public static string GetShortDescription(Card card)
     {
@@ -343,6 +381,10 @@ public static class ItemReader
 
         string name = GetCardName(card);
         string tier = GetTierName(card);
+        string tempState = GetTemperatureState(card);
+
+        if (!string.IsNullOrEmpty(tempState))
+            return $"{name}, {tier}, {tempState}";
 
         return $"{name}, {tier}";
     }
@@ -361,6 +403,13 @@ public static class ItemReader
         sb.Append(GetCardName(card));
         sb.Append(", ");
         sb.Append(GetTierName(card));
+
+        // Estado de temperatura (Heated/Chilled para Jules)
+        string tempState = GetTemperatureState(card);
+        if (!string.IsNullOrEmpty(tempState))
+        {
+            sb.Append($", {tempState}");
+        }
 
         // Tamaño
         var template = card.Template;
@@ -672,6 +721,13 @@ public static class ItemReader
         if (!string.IsNullOrEmpty(tags))
         {
             lines.Add(tags);
+        }
+
+        // Estado de temperatura (Heated/Chilled para Jules)
+        string tempState = GetTemperatureState(card);
+        if (!string.IsNullOrEmpty(tempState))
+        {
+            lines.Add($"State: {tempState}");
         }
 
         // Tamaño con nombre descriptivo

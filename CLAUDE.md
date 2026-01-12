@@ -735,6 +735,11 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
 - ✅ **Board reorder limit messages**: Clear feedback when item can't move further
   - "Reached limit, cannot move further left"
   - "Reached limit, cannot move further right"
+- ✅ **Jules Heat/Chill state announcements**: Items now announce Heated/Chilled state
+  - Foods near heat sources show "Heated" after tier name
+  - Foods near cold sources show "Chilled" after tier name
+  - Works in quick navigation, detailed description, and detail lines
+  - `GetTemperatureState()`, `IsHeated()`, `IsChilled()` methods added to ItemReader
 
 ---
 
