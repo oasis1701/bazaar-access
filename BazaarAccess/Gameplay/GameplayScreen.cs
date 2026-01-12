@@ -148,7 +148,7 @@ public class GameplayScreen : IAccessibleScreen
                     break;
 
                 case AccessibleKey.Back:
-                    _navigator.AnnounceState();
+                    // Do nothing - let the game handle it (opens pause menu)
                     break;
 
                 // Ignorar todas las demás teclas durante combate
@@ -285,9 +285,9 @@ public class GameplayScreen : IAccessibleScreen
                     Plugin.Instance.StartCoroutine(DelayedRefreshAndAnnounce());
                 break;
 
-            // Cancelar/Releer estado
+            // Escape - don't intercept, let the game handle it (opens pause menu)
             case AccessibleKey.Back:
-                _navigator.AnnounceState();
+                // Do nothing - let the game open the pause menu
                 break;
 
             // Buffer de mensajes
