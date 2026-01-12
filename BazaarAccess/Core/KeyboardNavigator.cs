@@ -121,8 +121,9 @@ public class KeyboardNavigator : MonoBehaviour
                 return AccessibleKey.Confirm;
 
             case KeyCode.Backspace:
-            case KeyCode.Escape:
                 return AccessibleKey.Back;
+
+            // Note: Escape is NOT mapped here because the game uses it for options menu
 
             case KeyCode.Tab:
                 return AccessibleKey.Tab;

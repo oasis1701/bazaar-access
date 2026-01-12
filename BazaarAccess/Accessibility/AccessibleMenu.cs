@@ -53,6 +53,16 @@ public class AccessibleMenu
         _options.Add(new MenuOption(getText, onConfirm, onRead, onAdjust));
     }
 
+    public void AddOption(Func<string> getText, Action onConfirm, Action<int> onAdjust, Func<bool> visible = null)
+    {
+        _options.Add(new MenuOption(getText, onConfirm, null, onAdjust, null, visible));
+    }
+
+    public void AddOption(Func<string> getText, Action onConfirm, Func<bool> visible)
+    {
+        _options.Add(new MenuOption(getText, onConfirm, null, null, null, visible));
+    }
+
     public void Clear()
     {
         _options.Clear();
@@ -101,15 +111,47 @@ public class AccessibleMenu
 
     private void Navigate(int direction)
     {
-        if (_options.Count == 0) return;
+        var visibleOptions = GetVisibleOptions();
+        if (visibleOptions.Count == 0) return;
 
-        _currentIndex += direction;
+        // Find current visible index
+        int currentVisibleIndex = -1;
+        for (int i = 0; i < visibleOptions.Count; i++)
+        {
+            if (visibleOptions[i].Index == _currentIndex)
+            {
+                currentVisibleIndex = i;
+                break;
+            }
+        }
+
+        // Move to next/prev visible option
+        if (currentVisibleIndex < 0) currentVisibleIndex = 0;
+        currentVisibleIndex += direction;
 
         // Wrap around
-        if (_currentIndex < 0) _currentIndex = _options.Count - 1;
-        if (_currentIndex >= _options.Count) _currentIndex = 0;
+        if (currentVisibleIndex < 0) currentVisibleIndex = visibleOptions.Count - 1;
+        if (currentVisibleIndex >= visibleOptions.Count) currentVisibleIndex = 0;
 
+        _currentIndex = visibleOptions[currentVisibleIndex].Index;
         ReadCurrentOption();
+    }
+
+    private List<VisibleOption> GetVisibleOptions()
+    {
+        var result = new List<VisibleOption>();
+        for (int i = 0; i < _options.Count; i++)
+        {
+            if (_options[i].IsVisible())
+                result.Add(new VisibleOption { Option = _options[i], Index = i });
+        }
+        return result;
+    }
+
+    private struct VisibleOption
+    {
+        public MenuOption Option;
+        public int Index;
     }
 
     private void Adjust(int direction)
@@ -162,13 +204,14 @@ public class AccessibleMenu
     }
 
     /// <summary>
-    /// Reads the current option with its position.
+    /// Reads the current option with its position among visible options.
     /// </summary>
     public void ReadCurrentOption()
     {
         if (_options.Count == 0 || _currentIndex >= _options.Count) return;
 
         var option = _options[_currentIndex];
+        if (!option.IsVisible()) return;
 
         // Execute custom read action if it exists
         option.OnRead?.Invoke();
@@ -176,8 +219,20 @@ public class AccessibleMenu
         // Get option text
         string text = option.GetText();
 
+        // Calculate position among visible options
+        var visibleOptions = GetVisibleOptions();
+        int visibleIndex = 0;
+        for (int i = 0; i < visibleOptions.Count; i++)
+        {
+            if (visibleOptions[i].Index == _currentIndex)
+            {
+                visibleIndex = i;
+                break;
+            }
+        }
+
         // Format: "Text, item X of Y"
-        string speech = $"{text}, item {_currentIndex + 1} of {_options.Count}";
+        string speech = $"{text}, item {visibleIndex + 1} of {visibleOptions.Count}";
 
         TolkWrapper.Speak(speech);
     }

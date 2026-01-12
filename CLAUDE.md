@@ -29,7 +29,10 @@ BazaarAccess/
 │   └── BaseUI.cs                 # Clase base para UIs (popups)
 ├── Screens/
 │   ├── HeroSelectScreen.cs       # Pantalla de selección de héroe
-│   └── MainMenuScreen.cs         # Pantalla del menú principal
+│   ├── MainMenuScreen.cs         # Pantalla del menú principal
+│   ├── ChestSceneScreen.cs       # Pantalla de apertura de baúles
+│   ├── CollectionScreen.cs       # Pantalla de colección/cosméticos
+│   └── BattlePassScreen.cs       # Pantalla del pase de temporada
 ├── Gameplay/
 │   ├── GameplayScreen.cs         # Pantalla principal del gameplay
 │   ├── GameplayNavigator.cs      # Navegador principal por secciones
@@ -70,7 +73,8 @@ BazaarAccess/
     ├── StateChangePatch.cs       # Suscripción a eventos del juego en tiempo real
     ├── TutorialPatch.cs          # Accesibilidad del tutorial (FTUE)
     ├── EndOfRunPatch.cs          # Pantalla de fin de partida
-    └── LoginPatch.cs             # Sistema de login/cuenta (11 StateViews)
+    ├── LoginPatch.cs             # Sistema de login/cuenta (11 StateViews)
+    └── MenuPatches.cs            # Detección de menús (baúles, colección, pase)
 ```
 
 ## Arquitectura: Screens y UIs
@@ -690,6 +694,17 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
 - ✅ **Hero description reading**: In Hero Select screen, use Ctrl+Up/Down to read hero details (name, title, description, lock status)
 - ✅ **Fix enchanted/upgraded items**: Card detail cache now clears on `CardEnchantedSimEvent` and `CardUpgradedSimEvent` - shows updated stats
 - ✅ **Fix hero selection position**: After selecting a hero, menu stays on the same option instead of returning to start
+- ✅ **Chest Scene accessible**: Full chest opening experience with keyboard navigation
+  - Navigate chest types with left/right arrows
+  - Open single chest with Enter
+  - Open 10 chests at once with "Open 10 at once" option (auto-triggers lever)
+  - Rewards announced after opening: rarity, collection items, gems, vouchers, bonus chests
+  - Press any key to dismiss rewards and return to selection
+- ✅ **Battle Pass restructured**: Menu with Challenges and Tiers/Rewards sections
+  - Challenges mode: Daily challenges first, then weekly (navigate with arrows)
+  - Tiers mode: Navigate through all tiers with reward info
+  - Claim completed challenges with Enter
+- ✅ **Marketplace hidden**: Button hidden from main menu until accessible implementation
 
 ---
 
@@ -908,11 +923,87 @@ Al navegar con el teclado, las cartas muestran feedback visual (hover) para que 
 
 ---
 
+## Menús Adicionales Accesibles
+
+### Pantalla de Baúles (ChestSceneScreen)
+
+Accesible mediante `MenuPatches.cs` cuando se abre la escena de baúles.
+
+**Controles:**
+- **Flechas arriba/abajo**: Navegar opciones (Back, tipo de baúl, multi-open)
+- **Flechas izq/der**: Cambiar tipo de baúl (Season 1, Season 2, etc.)
+- **Enter**: Abrir baúl seleccionado
+- **Escape**: Volver al menú anterior
+
+**Opciones del menú:**
+- Back: Vuelve al menú anterior
+- Tipo de baúl: Muestra "Season X Chest: Y" donde Y es la cantidad
+- Open 10: Solo visible si tienes 10+ baúles del tipo seleccionado
+
+**Anuncios automáticos:**
+- "Select a chest" al entrar en modo selección
+- "Opening chest" al abrir un baúl
+- "Multi-select mode" al entrar en apertura múltiple
+
+### Pantalla de Colección (CollectionScreen)
+
+Accesible mediante `MenuPatches.cs` cuando se abre el menú de colección.
+
+**Controles:**
+- **Flechas arriba/abajo**: Navegar opciones
+- **Flechas izq/der**: Cambiar categoría de colección
+- **Enter**: Seleccionar categoría/item
+- **Escape**: Volver al menú anterior
+
+**Categorías disponibles:**
+- Hero Skins
+- Boards
+- Card Skins
+- Carpets
+- Card Backs
+- Album
+
+### Pantalla de Pase de Temporada (BattlePassScreen)
+
+Accesible mediante `MenuPatches.cs` cuando se abre el Battle Pass.
+
+**Controles:**
+- **Flechas arriba/abajo**: Navegar opciones
+- **Flechas izq/der**: Cambiar sección (Overview, Tiers, Challenges)
+- **Enter**: Confirmar acción
+- **Escape**: Volver a Overview / salir
+
+**Secciones:**
+- Overview: Resumen del pase de temporada
+- Tiers: Navegación por niveles/recompensas
+- Challenges: Desafíos diarios y semanales
+
+**Opciones:**
+- Back: Vuelve al menú anterior
+- Sección actual: Muestra info según la sección seleccionada
+- Collect All Rewards: Recoge todas las recompensas pendientes
+- Open Chests: Abre la escena de baúles
+
+**Anuncios automáticos:**
+- "Tier X unlocked" cuando se desbloquea un nivel
+
+### Marketplace y Profile
+
+También se detectan con anuncios básicos:
+- "Marketplace" al abrir el mercado
+- "Player Profile" al abrir el perfil
+
+*Nota: Estos menús tienen anuncio básico pero aún no navegación completa.*
+
+---
+
 ## Pendiente por Implementar
 
 ### Mejoras de Navegación
 - Preview de sinergia de items
 - Acceso rápido a información de cooldowns en batalla
+- Navegación completa del Marketplace
+- Navegación del Player Profile
 
 ### Combat Describer Mejoras
 - Obtener nombre real del monstruo en PvE

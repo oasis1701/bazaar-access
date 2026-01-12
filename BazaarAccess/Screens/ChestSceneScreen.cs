@@ -1,0 +1,501 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using BazaarAccess.Accessibility;
+using BazaarAccess.Core;
+using TheBazaar.Feature.Chest.Scene;
+using UnityEngine;
+
+namespace BazaarAccess.Screens;
+
+/// <summary>
+/// Accessible screen for the chest opening scene.
+/// Allows navigation through chest types and provides information about available chests.
+/// </summary>
+public class ChestSceneScreen : BaseScreen
+{
+    public override string ScreenName => "Chests";
+
+    private ChestSceneController _controller;
+    private int _currentChestIndex = 0;
+    private List<ChestInfo> _chests = new List<ChestInfo>();
+
+    // Track if we're viewing rewards after opening a chest
+    private bool _viewingRewards = false;
+    private List<PlayerChestInventory.ChestRewardResponse> _lastRewards = null;
+
+    private struct ChestInfo
+    {
+        public int SeasonId;
+        public string SeasonName;
+        public int Quantity;
+    }
+
+    public ChestSceneScreen(Transform root, ChestSceneController controller) : base(root)
+    {
+        _controller = controller;
+    }
+
+    protected override void BuildMenu()
+    {
+        RefreshChestData();
+
+        // Home button
+        Menu.AddOption(
+            () => "Back",
+            () => GoBack());
+
+        // Current chest type with navigation - Enter opens chest
+        Menu.AddOption(
+            () => GetCurrentChestText(),
+            () => OpenChest(),
+            (dir) => NavigateChestType(dir),
+            () => HasChestsToOpen());
+
+        // Multi-open option (if available)
+        Menu.AddOption(
+            () => GetMultiOpenText(),
+            () => ClickMultiOpen(),
+            () => CanMultiOpen());
+    }
+
+    private bool HasChestsToOpen()
+    {
+        RefreshChestData();
+        return _chests.Count > 0;
+    }
+
+    private void RefreshChestData()
+    {
+        _chests.Clear();
+
+        if (_controller == null || _controller.playerChestInventory == null) return;
+
+        try
+        {
+            var inventories = _controller.playerChestInventory.GetChestsInventory();
+            if (inventories == null) return;
+
+            foreach (var inv in inventories)
+            {
+                if (inv == null || inv.Quantity <= 0) continue;
+
+                var info = new ChestInfo
+                {
+                    SeasonId = inv.seasonId,
+                    Quantity = inv.Quantity,
+                    SeasonName = inv.seasonName ?? $"Season {inv.seasonId} Chest"
+                };
+                _chests.Add(info);
+            }
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError($"Error reading chest inventory: {e.Message}");
+        }
+    }
+
+    private string GetCurrentChestText()
+    {
+        RefreshChestData();
+
+        if (_chests.Count == 0)
+            return "No chests available";
+
+        if (_currentChestIndex >= _chests.Count)
+            _currentChestIndex = 0;
+
+        var chest = _chests[_currentChestIndex];
+        return $"{chest.SeasonName}: {chest.Quantity}";
+    }
+
+    private void NavigateChestType(int direction)
+    {
+        if (_viewingRewards) return;
+
+        RefreshChestData();
+
+        if (_chests.Count == 0) return;
+
+        _currentChestIndex += direction;
+        if (_currentChestIndex < 0) _currentChestIndex = _chests.Count - 1;
+        if (_currentChestIndex >= _chests.Count) _currentChestIndex = 0;
+
+        // Update the game's selection to match
+        try
+        {
+            var chest = _chests[_currentChestIndex];
+            _controller.playerChestInventory.SetSelectedInventoryBySeasonId(chest.SeasonId);
+
+            // Also update the wheel visually
+            if (_controller.ChestWheel != null)
+            {
+                _controller.ChestWheel.SetSelectedSeasonChestbySeasonId(chest.SeasonId);
+            }
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError($"Error navigating chest type: {e.Message}");
+        }
+
+        TolkWrapper.Speak(GetCurrentChestText());
+    }
+
+    private void ReadCurrentChest()
+    {
+        TolkWrapper.Speak(GetCurrentChestText());
+    }
+
+    private bool CanMultiOpen()
+    {
+        if (_controller == null) return false;
+
+        try
+        {
+            var selectedInv = _controller.playerChestInventory?.selectedSeasonInventory;
+            if (selectedInv == null) return false;
+
+            int required = _controller.numChestsRequiredForMultiOpen;
+            return selectedInv.Quantity >= required;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private string GetMultiOpenText()
+    {
+        if (_controller == null) return "Open 10";
+
+        int required = _controller.numChestsRequiredForMultiOpen;
+        return $"Open {required} at once";
+    }
+
+    private async void ClickMultiOpen()
+    {
+        if (_viewingRewards) return;
+
+        if (!CanMultiOpen())
+        {
+            TolkWrapper.Speak("Not enough chests for multi-open");
+            return;
+        }
+
+        try
+        {
+            int numChests = _controller.numChestsRequiredForMultiOpen;
+            var chest = _chests[_currentChestIndex];
+
+            TolkWrapper.Speak($"Opening {numChests} {chest.SeasonName} chests");
+
+            // Change to MultiSelect state which spawns the chests
+            _controller.ChangeState(ChestSceneController.States.MultiSelect);
+
+            // Wait for chests to spawn and lever to be ready
+            // SpawnDummyChests takes ~4 seconds, then ShowUI subscribes the event
+            await Task.Delay(5500);
+
+            // Trigger the lever pull to start multi-open
+            if (_controller.MultiOpenLever != null)
+            {
+                _controller.MultiOpenLever.TriggerPullAndRelease();
+            }
+
+            // Wait for multi-open animations (takes about 12-15 seconds depending on rarities)
+            await Task.Delay(14000);
+
+            // Now read all the rewards
+            _viewingRewards = true;
+            _lastRewards = _controller.playerChestInventory.openedChestRewards;
+
+            AnnounceMultiRewards();
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError($"Error in multi-open: {e.Message}");
+            TolkWrapper.Speak("Error opening chests");
+        }
+    }
+
+    private void AnnounceMultiRewards()
+    {
+        if (_lastRewards == null || _lastRewards.Count == 0)
+        {
+            TolkWrapper.Speak("Chests opened. Press Enter to continue.");
+            return;
+        }
+
+        // Count rewards by type
+        int totalGems = 0;
+        int totalBonusGems = 0;
+        int totalRankedVouchers = 0;
+        int totalBonusChests = 0;
+        int collectionItems = 0;
+        int duplicates = 0;
+
+        // Count by rarity
+        var rarityCounts = new Dictionary<string, int>();
+
+        foreach (var reward in _lastRewards)
+        {
+            // Count rarity
+            string rarity = reward.itemRarity.ToString();
+            if (!rarityCounts.ContainsKey(rarity))
+                rarityCounts[rarity] = 0;
+            rarityCounts[rarity]++;
+
+            // Collection items
+            if (reward.collectibleItem != null && !string.IsNullOrEmpty(reward.collectibleItem.itemId))
+            {
+                collectionItems++;
+                if (reward.IsDuplicate)
+                    duplicates++;
+            }
+
+            // Gems
+            totalGems += reward.gems;
+            totalBonusGems += reward.DuplicateGems;
+
+            // Ranked vouchers
+            totalRankedVouchers += reward.rankedVouchers;
+
+            // Bonus chests
+            if (reward.bonusChest != null)
+                totalBonusChests += reward.bonusChest.Length;
+        }
+
+        var parts = new List<string>();
+
+        // Summary of rarities
+        var rarityParts = new List<string>();
+        foreach (var kvp in rarityCounts)
+        {
+            rarityParts.Add($"{kvp.Value} {kvp.Key}");
+        }
+        if (rarityParts.Count > 0)
+        {
+            parts.Add(string.Join(", ", rarityParts));
+        }
+
+        // Collection items
+        if (collectionItems > 0)
+        {
+            if (duplicates > 0)
+                parts.Add($"{collectionItems} collection items ({duplicates} duplicates)");
+            else
+                parts.Add($"{collectionItems} collection items");
+        }
+
+        // Gems
+        if (totalGems > 0)
+            parts.Add($"{totalGems} gems");
+
+        if (totalBonusGems > 0)
+            parts.Add($"{totalBonusGems} bonus gems");
+
+        // Ranked vouchers
+        if (totalRankedVouchers > 0)
+            parts.Add($"{totalRankedVouchers} ranked vouchers");
+
+        // Bonus chests
+        if (totalBonusChests > 0)
+            parts.Add($"{totalBonusChests} bonus chests");
+
+        string rewardMessage;
+        if (parts.Count == 0)
+        {
+            rewardMessage = $"{_lastRewards.Count} chests opened";
+        }
+        else
+        {
+            rewardMessage = $"You received: {string.Join("; ", parts)}";
+        }
+
+        TolkWrapper.Speak($"{rewardMessage}. Press any key to continue.");
+    }
+
+    private void GoBack()
+    {
+        if (_viewingRewards)
+        {
+            // Return to chest selection
+            ReturnToSelection();
+            return;
+        }
+
+        try
+        {
+            // Click the home button to exit
+            if (_controller.HomeButton != null)
+            {
+                _controller.HomeButton.onClick.Invoke();
+            }
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError($"Error going home: {e.Message}");
+        }
+    }
+
+    private void ReturnToSelection()
+    {
+        _viewingRewards = false;
+        _lastRewards = null;
+
+        try
+        {
+            _controller.ChangeState(ChestSceneController.States.Select);
+            RefreshChestData();
+            TolkWrapper.Speak($"Chests. {GetCurrentChestText()}");
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError($"Error returning to selection: {e.Message}");
+            TolkWrapper.Speak("Chests");
+        }
+    }
+
+    public override void HandleInput(AccessibleKey key)
+    {
+        // When viewing rewards, any key dismisses and returns to selection
+        if (_viewingRewards)
+        {
+            ReturnToSelection();
+            return;
+        }
+
+        if (key == AccessibleKey.Back)
+        {
+            GoBack();
+            return;
+        }
+
+        base.HandleInput(key);
+    }
+
+    /// <summary>
+    /// Opens a chest of the currently selected type.
+    /// </summary>
+    private async void OpenChest()
+    {
+        RefreshChestData();
+
+        if (_chests.Count == 0)
+        {
+            TolkWrapper.Speak("No chests available");
+            return;
+        }
+
+        if (_currentChestIndex >= _chests.Count)
+            _currentChestIndex = 0;
+
+        var chest = _chests[_currentChestIndex];
+
+        try
+        {
+            TolkWrapper.Speak($"Opening {chest.SeasonName}");
+
+            // Open the chest on the server
+            bool success = await _controller.playerChestInventory.OpenChests(chest.SeasonId, 1);
+
+            if (success)
+            {
+                // Transition to the Open state
+                _controller.ChangeState(ChestSceneController.States.Open);
+
+                // Wait for animation to complete (approximately)
+                await Task.Delay(3500);
+
+                // Now read the rewards
+                _viewingRewards = true;
+                _lastRewards = _controller.playerChestInventory.openedChestRewards;
+
+                AnnounceRewards();
+            }
+            else
+            {
+                TolkWrapper.Speak("Failed to open chest");
+            }
+        }
+        catch (Exception e)
+        {
+            Plugin.Logger.LogError($"Error opening chest: {e.Message}");
+            TolkWrapper.Speak("Error opening chest");
+        }
+    }
+
+    private void AnnounceRewards()
+    {
+        if (_lastRewards == null || _lastRewards.Count == 0)
+        {
+            TolkWrapper.Speak("Chest opened. Press Enter to continue, Space to open another.");
+            return;
+        }
+
+        var rewardTexts = new List<string>();
+
+        foreach (var reward in _lastRewards)
+        {
+            var parts = new List<string>();
+
+            // Rarity
+            string rarity = reward.itemRarity.ToString();
+            parts.Add(rarity);
+
+            // Collection item
+            if (reward.collectibleItem != null && !string.IsNullOrEmpty(reward.collectibleItem.itemId))
+            {
+                if (reward.IsDuplicate)
+                {
+                    parts.Add("Collection item (duplicate)");
+                }
+                else
+                {
+                    parts.Add("Collection item");
+                }
+            }
+
+            // Gems
+            if (reward.gems > 0)
+            {
+                parts.Add($"{reward.gems} gems");
+            }
+
+            // Duplicate gems
+            if (reward.DuplicateGems > 0)
+            {
+                parts.Add($"{reward.DuplicateGems} bonus gems");
+            }
+
+            // Ranked vouchers
+            if (reward.rankedVouchers > 0)
+            {
+                parts.Add($"{reward.rankedVouchers} ranked vouchers");
+            }
+
+            // Bonus chests
+            if (reward.bonusChest != null && reward.bonusChest.Length > 0)
+            {
+                parts.Add($"{reward.bonusChest.Length} bonus chest{(reward.bonusChest.Length > 1 ? "s" : "")}");
+            }
+
+            if (parts.Count > 0)
+            {
+                rewardTexts.Add(string.Join(", ", parts));
+            }
+        }
+
+        string rewardMessage;
+        if (rewardTexts.Count == 0)
+        {
+            rewardMessage = "Chest opened";
+        }
+        else
+        {
+            rewardMessage = $"You received: {string.Join("; ", rewardTexts)}";
+        }
+
+        TolkWrapper.Speak($"{rewardMessage}. Press any key to continue.");
+    }
+}

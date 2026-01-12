@@ -3,49 +3,55 @@ using System;
 namespace BazaarAccess.Accessibility;
 
 /// <summary>
-/// Representa una opción en un menú accesible.
-/// Sigue el patrón de Hearthstone con delegados para texto dinámico.
+/// Represents an option in an accessible menu.
+/// Follows the Hearthstone pattern with delegates for dynamic text.
 /// </summary>
 public class MenuOption
 {
     /// <summary>
-    /// Delegado para obtener el texto de la opción (permite texto dinámico).
+    /// Delegate to get the option text (allows dynamic text).
     /// </summary>
     public Func<string> GetText { get; }
 
     /// <summary>
-    /// Acción al confirmar (Enter).
+    /// Action on confirm (Enter).
     /// </summary>
     public Action OnConfirm { get; }
 
     /// <summary>
-    /// Acción al leer la opción (opcional, para comportamiento especial).
+    /// Action when reading the option (optional, for special behavior).
     /// </summary>
     public Action OnRead { get; }
 
     /// <summary>
-    /// Acción al ajustar con izquierda/derecha (para sliders/toggles).
+    /// Action for adjusting with left/right (for sliders/toggles).
     /// </summary>
     public Action<int> OnAdjust { get; }
 
     /// <summary>
-    /// Tecla de acceso rápido (opcional).
+    /// Delegate to check if option is visible (optional).
+    /// </summary>
+    public Func<bool> IsVisible { get; }
+
+    /// <summary>
+    /// Hotkey (optional).
     /// </summary>
     public string Hotkey { get; }
 
-    // Constructor con texto estático
-    public MenuOption(string text, Action onConfirm, Action onRead = null, Action<int> onAdjust = null, string hotkey = null)
-        : this(() => text, onConfirm, onRead, onAdjust, hotkey)
+    // Constructor with static text
+    public MenuOption(string text, Action onConfirm, Action onRead = null, Action<int> onAdjust = null, string hotkey = null, Func<bool> isVisible = null)
+        : this(() => text, onConfirm, onRead, onAdjust, hotkey, isVisible)
     {
     }
 
-    // Constructor con texto dinámico
-    public MenuOption(Func<string> getText, Action onConfirm, Action onRead = null, Action<int> onAdjust = null, string hotkey = null)
+    // Constructor with dynamic text
+    public MenuOption(Func<string> getText, Action onConfirm, Action onRead = null, Action<int> onAdjust = null, string hotkey = null, Func<bool> isVisible = null)
     {
         GetText = getText ?? (() => "");
         OnConfirm = onConfirm;
         OnRead = onRead;
         OnAdjust = onAdjust;
         Hotkey = hotkey;
+        IsVisible = isVisible ?? (() => true);
     }
 }
