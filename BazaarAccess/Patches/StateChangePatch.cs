@@ -463,9 +463,13 @@ public static class StateChangePatch
         screen?.OnCombatStateChanged(false);
     }
 
+    // Cached combat result data for building consolidated messages
+    private static BazaarMatchHistory.EVictoryCondition _pendingCombatResult;
+    private static Coroutine _combatResultCoroutine;
+
     /// <summary>
     /// When combat finishes with a result (fires for BOTH PvE and PvP).
-    /// This is the main source of victory/defeat announcements.
+    /// Uses a short delay to consolidate with victory/prestige updates into one message.
     /// </summary>
     private static void OnCombatResult(BazaarMatchHistory.EVictoryCondition result)
     {
@@ -479,43 +483,79 @@ public static class StateChangePatch
         }
         _combatResultAnnounced = true;
 
-        switch (result)
-        {
-            case BazaarMatchHistory.EVictoryCondition.Win:
-                TolkWrapper.Speak("Victory!");
-                break;
+        // Store result and start delayed announcement
+        _pendingCombatResult = result;
 
-            case BazaarMatchHistory.EVictoryCondition.Lose:
-                TolkWrapper.Speak("Defeat!");
-                break;
+        // Cancel any existing coroutine
+        if (_combatResultCoroutine != null)
+        {
+            Plugin.Instance.StopCoroutine(_combatResultCoroutine);
         }
+
+        // Wait briefly for victory/prestige events to fire, then announce consolidated message
+        _combatResultCoroutine = Plugin.Instance.StartCoroutine(DelayedCombatResultAnnounce());
+    }
+
+    /// <summary>
+    /// Announces combat result after a short delay to include updated stats.
+    /// </summary>
+    private static System.Collections.IEnumerator DelayedCombatResultAnnounce()
+    {
+        yield return new UnityEngine.WaitForSeconds(0.15f);
+
+        try
+        {
+            string message;
+            if (_pendingCombatResult == BazaarMatchHistory.EVictoryCondition.Win)
+            {
+                // Get current victory count from Data.Run.Victories
+                uint victories = Data.Run?.Victories ?? 0;
+                if (victories > 0)
+                {
+                    message = $"Victory! {victories} wins";
+                }
+                else
+                {
+                    message = "Victory!";
+                }
+            }
+            else
+            {
+                // Get current prestige
+                int prestige = Data.Run?.Player?.GetAttributeValue(EPlayerAttributeType.Prestige) ?? 0;
+                message = $"Defeat! {prestige} prestige remaining";
+            }
+
+            TolkWrapper.Speak(message);
+        }
+        catch (Exception ex)
+        {
+            Plugin.Logger.LogError($"DelayedCombatResultAnnounce error: {ex.Message}");
+            // Fallback to simple announcement
+            TolkWrapper.Speak(_pendingCombatResult == BazaarMatchHistory.EVictoryCondition.Win ? "Victory!" : "Defeat!");
+        }
+
+        _combatResultCoroutine = null;
     }
 
     /// <summary>
     /// When victory count increases (we won PvP combat).
-    /// Only fires for PvP, announces the win count as additional info.
+    /// Does NOT speak - consolidated with OnCombatResult.
     /// </summary>
     private static void OnVictoryCountChanged(uint newVictoryCount)
     {
         Plugin.Logger.LogInfo($"VictoryCountChanged: {newVictoryCount}");
-        // Only announce the count, OnCombatResult already said "Victory!"
-        TolkWrapper.Speak($"{newVictoryCount} wins");
+        // Do not speak here - OnCombatResult handles the consolidated message
     }
 
     /// <summary>
     /// When prestige changes (if it decreases, we lost).
-    /// Announces prestige lost as additional info (OnCombatResult handles "Defeat!").
+    /// Does NOT speak - consolidated with OnCombatResult.
     /// </summary>
     private static void OnPrestigeChanged(GameSimEventPlayerPrestigeChanged evt)
     {
         Plugin.Logger.LogInfo($"PrestigeChanged: Delta={evt.Delta}");
-        if (evt.Delta < 0)
-        {
-            // Lost prestige = lost the combat
-            // Only announce the prestige info, OnCombatResult already said "Defeat!"
-            int currentPrestige = Data.Run?.Player?.GetAttributeValue(EPlayerAttributeType.Prestige) ?? 0;
-            TolkWrapper.Speak($"Lost {-evt.Delta} prestige. {currentPrestige} remaining");
-        }
+        // Do not speak here - OnCombatResult handles the consolidated message
     }
 
     private static void OnCardPurchased(GameSimEventCardPurchased evt)

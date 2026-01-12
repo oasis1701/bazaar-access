@@ -1,15 +1,22 @@
 using System;
 using DavyKager;
+using UnityEngine;
 
 namespace BazaarAccess.Core;
 
 /// <summary>
 /// Wrapper para Tolk con manejo de errores centralizado.
+/// Includes global deduplication to prevent spam.
 /// </summary>
 public static class TolkWrapper
 {
     private static bool _isInitialized = false;
     private static bool _initFailed = false;
+
+    // Global deduplication to prevent the same message being spoken twice rapidly
+    private static string _lastSpokenText = "";
+    private static float _lastSpokenTime = 0f;
+    private const float DEDUP_WINDOW = 0.3f; // Seconds to consider as duplicate
 
     public static bool IsAvailable => _isInitialized && !_initFailed;
 
@@ -36,6 +43,44 @@ public static class TolkWrapper
     public static void Speak(string text, bool interrupt = true)
     {
         if (!_isInitialized || string.IsNullOrWhiteSpace(text)) return;
+
+        // Global deduplication: skip if same text was just spoken
+        float currentTime = Time.realtimeSinceStartup;
+        if (text == _lastSpokenText && (currentTime - _lastSpokenTime) < DEDUP_WINDOW)
+        {
+            Plugin.Logger.LogInfo($"TolkWrapper: Skipping duplicate speech: {text.Substring(0, Math.Min(text.Length, 30))}...");
+            return;
+        }
+
+        _lastSpokenText = text;
+        _lastSpokenTime = currentTime;
+
+        try
+        {
+            if (interrupt)
+            {
+                Tolk.Output(text);
+            }
+            else
+            {
+                Tolk.Speak(text);
+            }
+        }
+        catch (Exception ex)
+        {
+            Plugin.Logger.LogWarning($"Error en Tolk.Output: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Speaks without deduplication check. Use for intentional repeats.
+    /// </summary>
+    public static void SpeakForced(string text, bool interrupt = true)
+    {
+        if (!_isInitialized || string.IsNullOrWhiteSpace(text)) return;
+
+        _lastSpokenText = text;
+        _lastSpokenTime = Time.realtimeSinceStartup;
 
         try
         {

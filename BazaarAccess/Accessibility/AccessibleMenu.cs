@@ -142,18 +142,21 @@ public class AccessibleMenu
 
     /// <summary>
     /// Starts reading the menu from the first option.
+    /// Only announces the menu name - user will hear first option when they navigate.
     /// </summary>
     public void StartReading(bool announceMenuName = true)
     {
-        if (announceMenuName && !string.IsNullOrEmpty(_menuName))
-        {
-            TolkWrapper.Speak(_menuName);
-        }
-
         _currentIndex = 0;
 
-        if (_options.Count > 0)
+        if (announceMenuName && !string.IsNullOrEmpty(_menuName))
         {
+            // Only announce menu name, not the first option
+            // User will hear the option when they press an arrow key
+            TolkWrapper.Speak(_menuName);
+        }
+        else if (_options.Count > 0)
+        {
+            // No menu name, so we need to announce the first option
             ReadCurrentOption();
         }
     }

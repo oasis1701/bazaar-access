@@ -848,8 +848,10 @@ public class GameplayScreen : IAccessibleScreen
 
     private void RefreshAndAnnounce()
     {
+        // Only refresh - don't announce to avoid duplicates
+        // User already got feedback from the action itself
+        // If they want to know current position, they can press an arrow key
         _navigator.Refresh();
-        _navigator.AnnounceCurrentItem();
         _navigator.TriggerVisualSelection();
     }
 

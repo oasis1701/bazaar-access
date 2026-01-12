@@ -663,6 +663,15 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
 - ✅ **Shift+U Upgrade**: Upgrade items at Pedestal stations (Bronze→Silver→Gold→Diamond)
 - ✅ **PvE combat results**: "Victory!" and "Defeat!" now announced for PvE fights (not just PvP)
 - ✅ **Combat result events**: Uses GameServiceManager.OnCombatPvEFinish for reliable win/lose detection
+- ✅ **Fix massive speech deduplication**: Comprehensive fixes to prevent duplicate/triple announcements
+  - `AnnounceSection()` no longer calls `AnnounceCurrentItem()` - user hears item on arrow keys
+  - `AnnounceHeroSubsection()` no longer announces first stat/skill automatically
+  - Removed duplicate tutorial patches from PopupPatch.cs (TutorialPatch.cs handles all)
+  - Removed `BaseDialogPatch` that was patching base class (caused ALL dialogs to double-announce)
+  - Combat results consolidated: "Victory! 3 wins" instead of "Victory!" then "3 wins"
+  - `AccessibleMenu.StartReading()` only announces menu name, not first option
+  - `RefreshAndAnnounce()` now only refreshes, doesn't announce (avoids StateChangePatch conflict)
+  - `TolkWrapper.Speak()` has global 0.3s deduplication as safety net
 
 ---
 

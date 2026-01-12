@@ -408,15 +408,15 @@ public class GameplayNavigator
     /// </summary>
     private void AnnounceHeroSubsection()
     {
+        // Only announce subsection name + count, not the first item
+        // User will hear the item when they press Ctrl+arrows
         if (_heroSubsection == HeroSubsection.Stats)
         {
             TolkWrapper.Speak($"Hero stats, {HeroStats.Length} stats");
-            AnnounceHeroStat();
         }
         else
         {
             TolkWrapper.Speak($"Hero skills, {_playerSkills.Count} skills");
-            AnnounceHeroSkill();
         }
     }
 
@@ -1077,8 +1077,9 @@ public class GameplayNavigator
             _ => "Unknown"
         };
 
+        // Only announce section name + count, not the item
+        // User will hear the item when they press arrow keys
         TolkWrapper.Speak($"{name}, {count} items");
-        AnnounceCurrentItem();
         TriggerVisualSelection();
     }
 
