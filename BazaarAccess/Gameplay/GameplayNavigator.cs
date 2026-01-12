@@ -84,6 +84,9 @@ public class GameplayNavigator
     // Estado del stash (abierto/cerrado)
     private bool _stashOpen = false;
 
+    // Sección anterior antes de abrir el stash (para restaurar al cerrar)
+    private NavigationSection _sectionBeforeStash = NavigationSection.Selection;
+
     // Modo replay (post-combate)
     private bool _inReplayMode = false;
 
@@ -592,6 +595,12 @@ public class GameplayNavigator
     /// </summary>
     public void SetStashState(bool isOpen)
     {
+        if (isOpen && !_stashOpen)
+        {
+            // Save current section before opening stash
+            _sectionBeforeStash = _currentSection;
+        }
+
         _stashOpen = isOpen;
 
         if (isOpen)
@@ -606,6 +615,11 @@ public class GameplayNavigator
             _stashIndices.Clear();
         }
     }
+
+    /// <summary>
+    /// Gets the section to return to when stash closes.
+    /// </summary>
+    public NavigationSection GetSectionBeforeStash() => _sectionBeforeStash;
 
     /// <summary>
     /// Lee la información del enemigo/NPC actual.

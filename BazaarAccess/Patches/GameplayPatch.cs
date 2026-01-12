@@ -44,28 +44,35 @@ public static class GameplayPatch
         yield return new WaitForSeconds(1.0f);
         if (_gameplayScreen == null) yield break;
 
-        // Esperar a que Data.CurrentState esté disponible (no sea null)
-        // Esto asegura que el estado real esté cargado antes de anunciar
+        // Esperar a que Data.CurrentState esté disponible y tenga un estado válido
+        // No solo que no sea null, sino que el SelectionSet tenga contenido
         float waitTime = 0f;
         const float maxWaitTime = 5f;
-        while (Data.CurrentState == null && waitTime < maxWaitTime)
+        while (waitTime < maxWaitTime)
         {
+            if (Data.CurrentState != null)
+            {
+                // Check if SelectionSet has content (cards loaded)
+                var selectionSet = Data.CurrentState.SelectionSet;
+                if (selectionSet != null && selectionSet.Count > 0)
+                {
+                    Plugin.Logger.LogInfo($"DelayedInitialize: State ready with {selectionSet.Count} items, StateName={Data.CurrentState.StateName}");
+                    break;
+                }
+            }
+
             yield return new WaitForSeconds(0.2f);
             waitTime += 0.2f;
-            Plugin.Logger.LogInfo($"DelayedInitialize: Waiting for Data.CurrentState... ({waitTime:F1}s)");
+            Plugin.Logger.LogInfo($"DelayedInitialize: Waiting for content... ({waitTime:F1}s)");
         }
 
         if (Data.CurrentState == null)
         {
             Plugin.Logger.LogWarning("DelayedInitialize: Data.CurrentState still null after max wait");
         }
-        else
-        {
-            Plugin.Logger.LogInfo($"DelayedInitialize: Data.CurrentState ready = {Data.CurrentState.StateName}");
-        }
 
-        // Pequeño delay adicional para que el contenido se cargue
-        yield return new WaitForSeconds(0.5f);
+        // Pequeño delay adicional para que el contenido se cargue completamente
+        yield return new WaitForSeconds(0.3f);
         if (_gameplayScreen == null) yield break;
 
         // Primer refresh

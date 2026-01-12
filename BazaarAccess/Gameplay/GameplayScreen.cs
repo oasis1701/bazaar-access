@@ -405,8 +405,13 @@ public class GameplayScreen : IAccessibleScreen
         _lastState = StateChangePatch.GetCurrentRunState();
         _navigator.Refresh();
 
-        // Auto-focus a la sección correcta según el estado
-        AutoFocusForState(_lastState);
+        // Only auto-focus when this is NOT returning from a UI popup
+        // When returning from a popup (e.g., sell confirmation), keep the user in their current section
+        if (!AccessibilityMgr.IsReturningFromUI)
+        {
+            // Auto-focus a la sección correcta según el estado
+            AutoFocusForState(_lastState);
+        }
 
         // No anunciar aquí - DelayedInitialize lo hará después de que el contenido esté listo
         // _navigator.AnnounceState();
@@ -942,11 +947,11 @@ public class GameplayScreen : IAccessibleScreen
         else
         {
             TolkWrapper.Speak("Stash closed");
-            // If user was navigating the stash, move to board
-            // Otherwise stay in current section
+            // If user was navigating the stash, return to section before stash was opened
             if (_navigator.CurrentSection == NavigationSection.Stash)
             {
-                _navigator.SetSectionSilent(NavigationSection.Board);
+                var previousSection = _navigator.GetSectionBeforeStash();
+                _navigator.SetSectionSilent(previousSection);
                 _navigator.Refresh();
             }
         }

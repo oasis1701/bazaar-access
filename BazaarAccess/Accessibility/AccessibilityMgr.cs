@@ -40,6 +40,15 @@ public static class AccessibilityMgr
     // Pantalla actual (vista base)
     private static IAccessibleScreen _currentScreen;
 
+    // Flag to indicate if OnFocus is being called after returning from a popup
+    private static bool _returningFromUI = false;
+
+    /// <summary>
+    /// Returns true if the current OnFocus() call is due to returning from a UI popup.
+    /// Screens should check this to avoid re-focusing to default section.
+    /// </summary>
+    public static bool IsReturningFromUI => _returningFromUI;
+
     // --- Gestión de pantallas ---
 
     /// <summary>
@@ -117,7 +126,9 @@ public static class AccessibilityMgr
             }
             else if (_currentScreen != null)
             {
+                _returningFromUI = true;
                 _currentScreen.OnFocus();
+                _returningFromUI = false;
             }
         }
     }
@@ -143,7 +154,9 @@ public static class AccessibilityMgr
         }
         else if (_currentScreen != null)
         {
+            _returningFromUI = true;
             _currentScreen.OnFocus();
+            _returningFromUI = false;
         }
     }
 
