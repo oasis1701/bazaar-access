@@ -243,6 +243,23 @@ public class GameplayScreen : IAccessibleScreen
                 // No se usan en el gameplay fuera de menús específicos
                 break;
 
+            // Fast navigation
+            case AccessibleKey.Home:
+                _navigator.NavigateToFirst();
+                break;
+
+            case AccessibleKey.End:
+                _navigator.NavigateToLast();
+                break;
+
+            case AccessibleKey.PageUp:
+                _navigator.NavigatePage(-1);
+                break;
+
+            case AccessibleKey.PageDown:
+                _navigator.NavigatePage(1);
+                break;
+
             // Ctrl+Up/Down: En Hero navega stats/skills, en otras secciones lee detalles
             case AccessibleKey.DetailUp:
                 if (_navigator.IsInHeroSection)

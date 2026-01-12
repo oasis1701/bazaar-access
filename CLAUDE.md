@@ -119,6 +119,12 @@ Opción de menú con delegados para máxima flexibilidad:
 - **Enter**: Activar opción
 - **Escape**: Volver/cerrar
 - **F1**: Ayuda
+- **Home**: Ir al primer elemento de la lista
+- **End**: Ir al último elemento de la lista
+- **Page Up**: Retroceder 10 elementos (o al principio si hay menos de 10)
+- **Page Down**: Avanzar 10 elementos (o al final si hay menos de 10)
+
+**Nota**: La navegación NO hace wrap-around. Al llegar al límite de una lista, se anuncia "Start of list" o "End of list".
 
 ### Controles en Hero Select
 
@@ -720,6 +726,17 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - Ready button shows contextual text (Ready, Resume)
   - Menu position preserved when switching modes (doesn't jump to start)
   - Uses `PlaymodeSelectionViewComponent` and `PlaymodeReadyButtonComponent`
+- ✅ **Fast navigation keys**: Home/End/PageUp/PageDown for all menus
+  - **Home**: Go to first element
+  - **End**: Go to last element
+  - **Page Up**: Go back 10 items (or to start if less than 10)
+  - **Page Down**: Go forward 10 items (or to end if less than 10)
+- ✅ **No wrap-around navigation**: Lists no longer wrap from end to start
+  - Announces "Start of list" or "End of list" when reaching limits
+  - Applies to all menus, gameplay navigation, hero stats, enemy items
+- ✅ **Board reorder limit messages**: Clear feedback when item can't move further
+  - "Reached limit, cannot move further left"
+  - "Reached limit, cannot move further right"
 
 ---
 

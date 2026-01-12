@@ -104,6 +104,22 @@ public class AccessibleMenu
                 Back();
                 return true;
 
+            case AccessibleKey.Home:
+                NavigateToFirst();
+                return true;
+
+            case AccessibleKey.End:
+                NavigateToLast();
+                return true;
+
+            case AccessibleKey.PageUp:
+                NavigatePage(-1);
+                return true;
+
+            case AccessibleKey.PageDown:
+                NavigatePage(1);
+                return true;
+
             default:
                 return false;
         }
@@ -127,13 +143,93 @@ public class AccessibleMenu
 
         // Move to next/prev visible option
         if (currentVisibleIndex < 0) currentVisibleIndex = 0;
-        currentVisibleIndex += direction;
+        int newVisibleIndex = currentVisibleIndex + direction;
 
-        // Wrap around
-        if (currentVisibleIndex < 0) currentVisibleIndex = visibleOptions.Count - 1;
-        if (currentVisibleIndex >= visibleOptions.Count) currentVisibleIndex = 0;
+        // No wrap - stay at limits
+        if (newVisibleIndex < 0)
+        {
+            TolkWrapper.Speak("Start of list");
+            return;
+        }
+        if (newVisibleIndex >= visibleOptions.Count)
+        {
+            TolkWrapper.Speak("End of list");
+            return;
+        }
 
-        _currentIndex = visibleOptions[currentVisibleIndex].Index;
+        _currentIndex = visibleOptions[newVisibleIndex].Index;
+        ReadCurrentOption();
+    }
+
+    private void NavigateToFirst()
+    {
+        var visibleOptions = GetVisibleOptions();
+        if (visibleOptions.Count == 0) return;
+
+        _currentIndex = visibleOptions[0].Index;
+        ReadCurrentOption();
+    }
+
+    private void NavigateToLast()
+    {
+        var visibleOptions = GetVisibleOptions();
+        if (visibleOptions.Count == 0) return;
+
+        _currentIndex = visibleOptions[visibleOptions.Count - 1].Index;
+        ReadCurrentOption();
+    }
+
+    private void NavigatePage(int direction)
+    {
+        var visibleOptions = GetVisibleOptions();
+        if (visibleOptions.Count == 0) return;
+
+        // Only use page navigation if more than 10 items
+        if (visibleOptions.Count <= 10)
+        {
+            // For small lists, just go to start/end
+            if (direction < 0)
+                NavigateToFirst();
+            else
+                NavigateToLast();
+            return;
+        }
+
+        // Find current visible index
+        int currentVisibleIndex = 0;
+        for (int i = 0; i < visibleOptions.Count; i++)
+        {
+            if (visibleOptions[i].Index == _currentIndex)
+            {
+                currentVisibleIndex = i;
+                break;
+            }
+        }
+
+        // Move by 10 items
+        int newVisibleIndex = currentVisibleIndex + (direction * 10);
+
+        // Clamp to bounds
+        if (newVisibleIndex < 0)
+        {
+            newVisibleIndex = 0;
+            if (currentVisibleIndex == 0)
+            {
+                TolkWrapper.Speak("Start of list");
+                return;
+            }
+        }
+        if (newVisibleIndex >= visibleOptions.Count)
+        {
+            newVisibleIndex = visibleOptions.Count - 1;
+            if (currentVisibleIndex == visibleOptions.Count - 1)
+            {
+                TolkWrapper.Speak("End of list");
+                return;
+            }
+        }
+
+        _currentIndex = visibleOptions[newVisibleIndex].Index;
         ReadCurrentOption();
     }
 
@@ -308,5 +404,10 @@ public enum AccessibleKey
     // Board info
     BoardInfo,      // T - Board capacity info (slots used/total)
     // Challenges
-    Challenges      // Q - Read current challenges
+    Challenges,     // Q - Read current challenges
+    // Fast navigation
+    Home,           // Home - Go to first element
+    End,            // End - Go to last element
+    PageUp,         // Page Up - Navigate faster (10 items)
+    PageDown        // Page Down - Navigate faster (10 items)
 }

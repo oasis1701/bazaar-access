@@ -311,12 +311,12 @@ public static class ActionHelper
             // Verificar límites (10 slots en el tablero, 0-9)
             if (newSlot < 0)
             {
-                TolkWrapper.Speak("Already at the start");
+                TolkWrapper.Speak("Reached limit, cannot move further left");
                 return false;
             }
             if (newSlot + cardSize > 10)
             {
-                TolkWrapper.Speak("Already at the end");
+                TolkWrapper.Speak("Reached limit, cannot move further right");
                 return false;
             }
 

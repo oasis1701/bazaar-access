@@ -511,13 +511,25 @@ public class GameplayNavigator
 
         if (_heroSubsection == HeroSubsection.Stats)
         {
-            _heroStatIndex = (_heroStatIndex + 1) % HeroStats.Length;
+            // No wrap - stay at end
+            if (_heroStatIndex >= HeroStats.Length - 1)
+            {
+                TolkWrapper.Speak("End of list");
+                return;
+            }
+            _heroStatIndex++;
             AnnounceHeroStat();
         }
         else
         {
             if (_playerSkills.Count == 0) return;
-            _heroSkillIndex = (_heroSkillIndex + 1) % _playerSkills.Count;
+            // No wrap - stay at end
+            if (_heroSkillIndex >= _playerSkills.Count - 1)
+            {
+                TolkWrapper.Speak("End of list");
+                return;
+            }
+            _heroSkillIndex++;
             AnnounceHeroSkill();
         }
     }
@@ -531,13 +543,25 @@ public class GameplayNavigator
 
         if (_heroSubsection == HeroSubsection.Stats)
         {
-            _heroStatIndex = (_heroStatIndex - 1 + HeroStats.Length) % HeroStats.Length;
+            // No wrap - stay at start
+            if (_heroStatIndex <= 0)
+            {
+                TolkWrapper.Speak("Start of list");
+                return;
+            }
+            _heroStatIndex--;
             AnnounceHeroStat();
         }
         else
         {
             if (_playerSkills.Count == 0) return;
-            _heroSkillIndex = (_heroSkillIndex - 1 + _playerSkills.Count) % _playerSkills.Count;
+            // No wrap - stay at start
+            if (_heroSkillIndex <= 0)
+            {
+                TolkWrapper.Speak("Start of list");
+                return;
+            }
+            _heroSkillIndex--;
             AnnounceHeroSkill();
         }
     }
@@ -752,7 +776,14 @@ public class GameplayNavigator
             return;
         }
 
-        _enemyItemIndex = (_enemyItemIndex + 1) % totalItems;
+        // No wrap - stay at end
+        if (_enemyItemIndex >= totalItems - 1)
+        {
+            TolkWrapper.Speak("End of list");
+            return;
+        }
+
+        _enemyItemIndex++;
         AnnounceCurrentEnemyItem();
     }
 
@@ -770,7 +801,14 @@ public class GameplayNavigator
             return;
         }
 
-        _enemyItemIndex = (_enemyItemIndex - 1 + totalItems) % totalItems;
+        // No wrap - stay at start
+        if (_enemyItemIndex <= 0)
+        {
+            TolkWrapper.Speak("Start of list");
+            return;
+        }
+
+        _enemyItemIndex--;
         AnnounceCurrentEnemyItem();
     }
 
@@ -948,7 +986,15 @@ public class GameplayNavigator
 
         int count = GetCurrentSectionCount();
         if (count == 0) return;
-        _currentIndex = (_currentIndex + 1) % count;
+
+        // No wrap - stay at end
+        if (_currentIndex >= count - 1)
+        {
+            TolkWrapper.Speak("End of list");
+            return;
+        }
+
+        _currentIndex++;
         AnnounceCurrentItem();
         TriggerVisualSelection();
     }
@@ -960,7 +1006,92 @@ public class GameplayNavigator
 
         int count = GetCurrentSectionCount();
         if (count == 0) return;
-        _currentIndex = (_currentIndex - 1 + count) % count;
+
+        // No wrap - stay at start
+        if (_currentIndex <= 0)
+        {
+            TolkWrapper.Speak("Start of list");
+            return;
+        }
+
+        _currentIndex--;
+        AnnounceCurrentItem();
+        TriggerVisualSelection();
+    }
+
+    /// <summary>
+    /// Navigate to the first item in the current section.
+    /// </summary>
+    public void NavigateToFirst()
+    {
+        if (_currentSection == NavigationSection.Hero) return;
+
+        int count = GetCurrentSectionCount();
+        if (count == 0) return;
+
+        _currentIndex = 0;
+        AnnounceCurrentItem();
+        TriggerVisualSelection();
+    }
+
+    /// <summary>
+    /// Navigate to the last item in the current section.
+    /// </summary>
+    public void NavigateToLast()
+    {
+        if (_currentSection == NavigationSection.Hero) return;
+
+        int count = GetCurrentSectionCount();
+        if (count == 0) return;
+
+        _currentIndex = count - 1;
+        AnnounceCurrentItem();
+        TriggerVisualSelection();
+    }
+
+    /// <summary>
+    /// Navigate by page (10 items at a time).
+    /// </summary>
+    public void NavigatePage(int direction)
+    {
+        if (_currentSection == NavigationSection.Hero) return;
+
+        int count = GetCurrentSectionCount();
+        if (count == 0) return;
+
+        // For small lists, just go to start/end
+        if (count <= 10)
+        {
+            if (direction < 0)
+                NavigateToFirst();
+            else
+                NavigateToLast();
+            return;
+        }
+
+        int newIndex = _currentIndex + (direction * 10);
+
+        // Clamp to bounds
+        if (newIndex < 0)
+        {
+            if (_currentIndex == 0)
+            {
+                TolkWrapper.Speak("Start of list");
+                return;
+            }
+            newIndex = 0;
+        }
+        if (newIndex >= count)
+        {
+            if (_currentIndex == count - 1)
+            {
+                TolkWrapper.Speak("End of list");
+                return;
+            }
+            newIndex = count - 1;
+        }
+
+        _currentIndex = newIndex;
         AnnounceCurrentItem();
         TriggerVisualSelection();
     }

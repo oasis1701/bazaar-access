@@ -181,6 +181,19 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.Q:
                 return AccessibleKey.Challenges;
 
+            // Fast navigation
+            case KeyCode.Home:
+                return AccessibleKey.Home;
+
+            case KeyCode.End:
+                return AccessibleKey.End;
+
+            case KeyCode.PageUp:
+                return AccessibleKey.PageUp;
+
+            case KeyCode.PageDown:
+                return AccessibleKey.PageDown;
+
             default:
                 return AccessibleKey.None;
         }
