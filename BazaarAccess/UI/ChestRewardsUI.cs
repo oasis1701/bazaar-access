@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using BazaarAccess.Accessibility;
 using BazaarAccess.Core;
+using BazaarAccess.Screens;
 using BazaarGameShared.TempoNet.Models;
 using TheBazaar.Feature.Chest.Scene;
 using UnityEngine;
@@ -9,6 +10,7 @@ namespace BazaarAccess.UI;
 
 /// <summary>
 /// Accessible UI for displaying chest rewards after opening.
+/// Only Enter closes this popup - user must explicitly confirm.
 /// </summary>
 public class ChestRewardsUI : BaseUI
 {
@@ -122,22 +124,24 @@ public class ChestRewardsUI : BaseUI
     private void Close()
     {
         AccessibilityMgr.PopUI();
+
+        // Return to chest selection state
+        var screen = AccessibilityMgr.GetCurrentScreen() as ChestSceneScreen;
+        screen?.ReturnToSelection();
     }
 
     protected override void OnBack()
     {
-        Close();
+        // Only Enter closes, not Escape - do nothing
     }
 
     public override void HandleInput(AccessibleKey key)
     {
-        switch (key)
+        // Only Enter closes the rewards popup
+        if (key == AccessibleKey.Confirm)
         {
-            case AccessibleKey.Confirm:
-            case AccessibleKey.Back:
-            case AccessibleKey.Space:
-                Close();
-                return;
+            Close();
+            return;
         }
 
         // Navigate rewards with up/down if there are multiple
@@ -163,7 +167,7 @@ public class ChestRewardsUI : BaseUI
             }
         }
 
-        base.HandleInput(key);
+        // Ignore all other keys - don't pass to base
     }
 
     private void ReadCurrentReward()

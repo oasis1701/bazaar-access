@@ -20,10 +20,6 @@ public class ChestSceneScreen : BaseScreen
     private int _currentChestIndex = 0;
     private List<ChestInfo> _chests = new List<ChestInfo>();
 
-    // Track if we're viewing rewards after opening a chest
-    private bool _viewingRewards = false;
-    private List<PlayerChestInventory.ChestRewardResponse> _lastRewards = null;
-
     private struct ChestInfo
     {
         public int SeasonId;
@@ -111,8 +107,6 @@ public class ChestSceneScreen : BaseScreen
 
     private void NavigateChestType(int direction)
     {
-        if (_viewingRewards) return;
-
         RefreshChestData();
 
         if (_chests.Count == 0) return;
@@ -174,8 +168,6 @@ public class ChestSceneScreen : BaseScreen
 
     private async void ClickMultiOpen()
     {
-        if (_viewingRewards) return;
-
         if (!CanMultiOpen())
         {
             TolkWrapper.Speak("Not enough chests for multi-open");
@@ -202,14 +194,8 @@ public class ChestSceneScreen : BaseScreen
                 _controller.MultiOpenLever.TriggerPullAndRelease();
             }
 
-            // Wait for multi-open animations (takes about 12-15 seconds depending on rarities)
-            await Task.Delay(14000);
-
-            // Now read all the rewards
-            _viewingRewards = true;
-            _lastRewards = _controller.playerChestInventory.openedChestRewards;
-
-            AnnounceMultiRewards();
+            // ChestRewardsUI will be shown automatically via ChestRewardsPatch
+            // when the CollectionsPopulated event fires
         }
         catch (Exception e)
         {
@@ -218,112 +204,8 @@ public class ChestSceneScreen : BaseScreen
         }
     }
 
-    private void AnnounceMultiRewards()
-    {
-        if (_lastRewards == null || _lastRewards.Count == 0)
-        {
-            TolkWrapper.Speak("Chests opened. Press Enter to continue.");
-            return;
-        }
-
-        // Count rewards by type
-        int totalGems = 0;
-        int totalBonusGems = 0;
-        int totalRankedVouchers = 0;
-        int totalBonusChests = 0;
-        int collectionItems = 0;
-        int duplicates = 0;
-
-        // Count by rarity
-        var rarityCounts = new Dictionary<string, int>();
-
-        foreach (var reward in _lastRewards)
-        {
-            // Count rarity
-            string rarity = reward.itemRarity.ToString();
-            if (!rarityCounts.ContainsKey(rarity))
-                rarityCounts[rarity] = 0;
-            rarityCounts[rarity]++;
-
-            // Collection items
-            if (reward.collectibleItem != null && !string.IsNullOrEmpty(reward.collectibleItem.itemId))
-            {
-                collectionItems++;
-                if (reward.IsDuplicate)
-                    duplicates++;
-            }
-
-            // Gems
-            totalGems += reward.gems;
-            totalBonusGems += reward.DuplicateGems;
-
-            // Ranked vouchers
-            totalRankedVouchers += reward.rankedVouchers;
-
-            // Bonus chests
-            if (reward.bonusChest != null)
-                totalBonusChests += reward.bonusChest.Length;
-        }
-
-        var parts = new List<string>();
-
-        // Summary of rarities
-        var rarityParts = new List<string>();
-        foreach (var kvp in rarityCounts)
-        {
-            rarityParts.Add($"{kvp.Value} {kvp.Key}");
-        }
-        if (rarityParts.Count > 0)
-        {
-            parts.Add(string.Join(", ", rarityParts));
-        }
-
-        // Collection items
-        if (collectionItems > 0)
-        {
-            if (duplicates > 0)
-                parts.Add($"{collectionItems} collection items ({duplicates} duplicates)");
-            else
-                parts.Add($"{collectionItems} collection items");
-        }
-
-        // Gems
-        if (totalGems > 0)
-            parts.Add($"{totalGems} gems");
-
-        if (totalBonusGems > 0)
-            parts.Add($"{totalBonusGems} bonus gems");
-
-        // Ranked vouchers
-        if (totalRankedVouchers > 0)
-            parts.Add($"{totalRankedVouchers} ranked vouchers");
-
-        // Bonus chests
-        if (totalBonusChests > 0)
-            parts.Add($"{totalBonusChests} bonus chests");
-
-        string rewardMessage;
-        if (parts.Count == 0)
-        {
-            rewardMessage = $"{_lastRewards.Count} chests opened";
-        }
-        else
-        {
-            rewardMessage = $"You received: {string.Join("; ", parts)}";
-        }
-
-        TolkWrapper.Speak($"{rewardMessage}. Press any key to continue.");
-    }
-
     private void GoBack()
     {
-        if (_viewingRewards)
-        {
-            // Return to chest selection
-            ReturnToSelection();
-            return;
-        }
-
         try
         {
             // Click the home button to exit
@@ -338,11 +220,11 @@ public class ChestSceneScreen : BaseScreen
         }
     }
 
-    private void ReturnToSelection()
+    /// <summary>
+    /// Called by ChestRewardsUI when closing rewards to return to selection.
+    /// </summary>
+    public void ReturnToSelection()
     {
-        _viewingRewards = false;
-        _lastRewards = null;
-
         try
         {
             _controller.ChangeState(ChestSceneController.States.Select);
@@ -358,13 +240,6 @@ public class ChestSceneScreen : BaseScreen
 
     public override void HandleInput(AccessibleKey key)
     {
-        // When viewing rewards, any key dismisses and returns to selection
-        if (_viewingRewards)
-        {
-            ReturnToSelection();
-            return;
-        }
-
         if (key == AccessibleKey.Back)
         {
             GoBack();
@@ -404,14 +279,8 @@ public class ChestSceneScreen : BaseScreen
                 // Transition to the Open state
                 _controller.ChangeState(ChestSceneController.States.Open);
 
-                // Wait for animation to complete (approximately)
-                await Task.Delay(3500);
-
-                // Now read the rewards
-                _viewingRewards = true;
-                _lastRewards = _controller.playerChestInventory.openedChestRewards;
-
-                AnnounceRewards();
+                // ChestRewardsUI will be shown automatically via ChestRewardsPatch
+                // when the CollectionsPopulated event fires
             }
             else
             {
@@ -423,79 +292,5 @@ public class ChestSceneScreen : BaseScreen
             Plugin.Logger.LogError($"Error opening chest: {e.Message}");
             TolkWrapper.Speak("Error opening chest");
         }
-    }
-
-    private void AnnounceRewards()
-    {
-        if (_lastRewards == null || _lastRewards.Count == 0)
-        {
-            TolkWrapper.Speak("Chest opened. Press Enter to continue, Space to open another.");
-            return;
-        }
-
-        var rewardTexts = new List<string>();
-
-        foreach (var reward in _lastRewards)
-        {
-            var parts = new List<string>();
-
-            // Rarity
-            string rarity = reward.itemRarity.ToString();
-            parts.Add(rarity);
-
-            // Collection item
-            if (reward.collectibleItem != null && !string.IsNullOrEmpty(reward.collectibleItem.itemId))
-            {
-                if (reward.IsDuplicate)
-                {
-                    parts.Add("Collection item (duplicate)");
-                }
-                else
-                {
-                    parts.Add("Collection item");
-                }
-            }
-
-            // Gems
-            if (reward.gems > 0)
-            {
-                parts.Add($"{reward.gems} gems");
-            }
-
-            // Duplicate gems
-            if (reward.DuplicateGems > 0)
-            {
-                parts.Add($"{reward.DuplicateGems} bonus gems");
-            }
-
-            // Ranked vouchers
-            if (reward.rankedVouchers > 0)
-            {
-                parts.Add($"{reward.rankedVouchers} ranked vouchers");
-            }
-
-            // Bonus chests
-            if (reward.bonusChest != null && reward.bonusChest.Length > 0)
-            {
-                parts.Add($"{reward.bonusChest.Length} bonus chest{(reward.bonusChest.Length > 1 ? "s" : "")}");
-            }
-
-            if (parts.Count > 0)
-            {
-                rewardTexts.Add(string.Join(", ", parts));
-            }
-        }
-
-        string rewardMessage;
-        if (rewardTexts.Count == 0)
-        {
-            rewardMessage = "Chest opened";
-        }
-        else
-        {
-            rewardMessage = $"You received: {string.Join("; ", rewardTexts)}";
-        }
-
-        TolkWrapper.Speak($"{rewardMessage}. Press any key to continue.");
     }
 }

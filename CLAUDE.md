@@ -50,6 +50,7 @@ BazaarAccess/
 │   ├── ConfirmActionUI.cs        # Popup de confirmación compra/venta
 │   ├── GenericPopupUI.cs         # Popups genéricos (tutoriales, mensajes)
 │   ├── TutorialUI.cs             # UI accesible para el tutorial (FTUE)
+│   ├── ChestRewardsUI.cs         # Popup de recompensas de cofres (solo Enter cierra)
 │   └── Login/                    # Sistema de login/cuenta accesible
 │       ├── LoginBaseUI.cs        # Clase base con modo edición para campos de texto
 │       ├── LandingUI.cs          # Pantalla inicial (Link/Create Account)
@@ -703,7 +704,7 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - Open single chest with Enter
   - Open 10 chests at once with "Open 10 at once" option (auto-triggers lever)
   - Rewards announced after opening: rarity, collection items, gems, vouchers, bonus chests
-  - Press any key to dismiss rewards and return to selection
+  - Press Enter to dismiss rewards and return to selection (only Enter closes popup)
 - ✅ **Battle Pass restructured**: Menu with Challenges and Tiers/Rewards sections
   - Challenges mode: Daily challenges first, then weekly (navigate with arrows)
   - Tiers mode: Navigate through all tiers with reward info
@@ -740,6 +741,10 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - Foods near cold sources show "Chilled" after tier name
   - Works in quick navigation, detailed description, and detail lines
   - `GetTemperatureState()`, `IsHeated()`, `IsChilled()` methods added to ItemReader
+- ✅ **Fix chest rewards popup stuck**: Removed duplicate rewards handling
+  - ChestSceneScreen now delegates rewards to ChestRewardsUI via CollectionsPopulated event
+  - ChestRewardsUI only accepts Enter to close (not Escape, Space, or Backspace)
+  - Properly returns to chest selection state after dismissing rewards
 
 ---
 
