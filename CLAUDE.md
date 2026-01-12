@@ -745,6 +745,11 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - ChestSceneScreen now delegates rewards to ChestRewardsUI via CollectionsPopulated event
   - ChestRewardsUI only accepts Enter to close (not Escape, Space, or Backspace)
   - Properly returns to chest selection state after dismissing rewards
+- ✅ **Fix PvP/PvE opponent name confusion**: `Data.SimPvpOpponent` persists from previous combat
+  - ItemReader.GetEncounterInfo() no longer uses SimPvpOpponent for menu (only shows hero name)
+  - ItemReader.GetEncounterDetailedInfo() same fix
+  - GameplayNavigator.ReadEnemyInfo() now checks `ERunState.PVPCombat` before using SimPvpOpponent
+  - CombatDescriber.OnEffectTriggered() verifies game state to ignore late events from previous combat
 
 ---
 

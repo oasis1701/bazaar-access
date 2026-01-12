@@ -664,11 +664,21 @@ public class GameplayNavigator
 
             var parts = new List<string>();
 
-            // Nombre del oponente (si es PvP tendrá nombre, si es NPC será el encuentro)
-            var pvpOpponent = Data.SimPvpOpponent;
-            if (pvpOpponent != null && !string.IsNullOrEmpty(pvpOpponent.Name))
+            // Nombre del oponente: solo usar SimPvpOpponent si estamos realmente en PvP combat
+            var currentState = Data.CurrentState?.StateName;
+            bool isPvpCombat = currentState == ERunState.PVPCombat;
+
+            if (isPvpCombat)
             {
-                parts.Add($"Opponent: {pvpOpponent.Name}");
+                var pvpOpponent = Data.SimPvpOpponent;
+                if (pvpOpponent != null && !string.IsNullOrEmpty(pvpOpponent.Name))
+                {
+                    parts.Add($"Opponent: {pvpOpponent.Name}");
+                }
+                else
+                {
+                    parts.Add("Enemy");
+                }
             }
             else
             {

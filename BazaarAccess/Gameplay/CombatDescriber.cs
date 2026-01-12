@@ -167,7 +167,14 @@ public static class CombatDescriber
     {
         if (!_active)
         {
-            Plugin.Logger.LogInfo("OnEffectTriggered: Not active, ignoring");
+            return;
+        }
+
+        // Double-check we're actually in combat (events can arrive late)
+        var currentState = Data.CurrentState?.StateName;
+        if (currentState != ERunState.Combat && currentState != ERunState.PVPCombat)
+        {
+            Plugin.Logger.LogInfo($"OnEffectTriggered: Not in combat state ({currentState}), ignoring");
             return;
         }
 

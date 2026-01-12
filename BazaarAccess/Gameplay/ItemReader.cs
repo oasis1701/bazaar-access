@@ -503,41 +503,25 @@ public static class ItemReader
 
     /// <summary>
     /// Obtiene información básica de un encuentro.
-    /// Para PvP, usa el nombre del jugador si está disponible.
+    /// Para PvP en menú, solo muestra el héroe (el nombre real del oponente no está disponible hasta entrar en combate).
     /// </summary>
     public static string GetEncounterInfo(Card card)
     {
         if (card == null) return "Empty";
 
-        string name;
+        string name = GetCardName(card);
         string type = GetEncounterTypeName(card.Type);
 
-        // Para PvP, intentar obtener el nombre del jugador real
-        if (card.Type == ECardType.PvpEncounter)
-        {
-            var pvpOpponent = Data.SimPvpOpponent;
-            if (pvpOpponent != null && !string.IsNullOrEmpty(pvpOpponent.Name))
-            {
-                // Mostrar nombre del jugador + héroe
-                string heroName = GetCardName(card);
-                name = $"{pvpOpponent.Name} ({heroName})";
-            }
-            else
-            {
-                name = GetCardName(card);
-            }
-        }
-        else
-        {
-            name = GetCardName(card);
-        }
+        // Para PvP, solo mostrar el héroe en el menú
+        // El nombre real del oponente solo está disponible durante el combate
+        // (Data.SimPvpOpponent persiste del combate anterior y no es confiable aquí)
 
         return $"{name}, {type}";
     }
 
     /// <summary>
     /// Obtiene información detallada de un encuentro.
-    /// Para PvP, incluye nombre del jugador, héroe, nivel, victorias, etc.
+    /// Para PvP en menú, solo muestra el héroe (datos del oponente no disponibles hasta combate).
     /// </summary>
     public static string GetEncounterDetailedInfo(Card card)
     {
@@ -545,45 +529,14 @@ public static class ItemReader
 
         var sb = new StringBuilder();
 
-        // Para PvP, mostrar información del jugador
-        if (card.Type == ECardType.PvpEncounter)
-        {
-            var pvpOpponent = Data.SimPvpOpponent;
-            if (pvpOpponent != null)
-            {
-                // Nombre del jugador
-                if (!string.IsNullOrEmpty(pvpOpponent.Name))
-                {
-                    sb.Append(pvpOpponent.Name);
-                }
-                else
-                {
-                    sb.Append(GetCardName(card));
-                }
-
-                // Héroe
-                sb.Append(", playing ");
-                sb.Append(GetCardName(card));
-
-                // Nivel
-                sb.Append($", Level {pvpOpponent.Level}");
-
-                // Victorias
-                sb.Append($", {pvpOpponent.Victories} wins");
-
-                // Prestigio
-                sb.Append($", {pvpOpponent.Prestige} prestige");
-
-                return sb.ToString();
-            }
-        }
-
-        // Para otros encuentros, comportamiento normal
+        // Para PvP, solo mostrar héroe y tipo
+        // Data.SimPvpOpponent persiste del combate anterior y no es confiable aquí
+        // Los datos reales del oponente solo están disponibles durante el combate
         sb.Append(GetCardName(card));
         sb.Append(", ");
         sb.Append(GetEncounterTypeName(card.Type));
 
-        // Descripción del encuentro
+        // Descripción del encuentro (si existe)
         string desc = GetDescription(card);
         if (!string.IsNullOrEmpty(desc))
         {
