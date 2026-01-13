@@ -2,6 +2,25 @@
 
 ---
 
+## January 13, 2026
+
+### New Features
+- Wave-based Combat Describer: Complete rewrite for less spam and more context
+  - Effects accumulated during combat waves (1.5s pause closes a wave)
+  - Symmetric summaries: "You: 45 damage (Water Dagger). Enemy: 30 damage (Poison Dagger), poison."
+  - Shows top damage-dealing item for each side
+  - Immediate alerts: "Low health!", "Critical health!", "Frozen!"
+  - Press H during combat for summary ("You dealt X, took Y. Health: A vs B")
+
+### Bug Fixes
+- Fixed items in loot/rewards announcing as "Acquired" (now just says the item name)
+- Fixed chest rewards finally working correctly with real item names
+
+### Improvements
+- Press S to hear stash capacity (items stored / total slots)
+
+---
+
 ## January 12, 2026
 
 ### New Features
