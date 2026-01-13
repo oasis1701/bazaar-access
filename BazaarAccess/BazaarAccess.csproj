@@ -53,6 +53,12 @@
     <Reference Include="BazaarBattleService">
       <HintPath>$(GameManagedPath)\BazaarBattleService.dll</HintPath>
     </Reference>
+    <Reference Include="Unity.Addressables">
+      <HintPath>$(GameManagedPath)\Unity.Addressables.dll</HintPath>
+    </Reference>
+    <Reference Include="Unity.ResourceManager">
+      <HintPath>$(GameManagedPath)\Unity.ResourceManager.dll</HintPath>
+    </Reference>
     <Reference Include="netstandard">
       <HintPath>$(GameManagedPath)\netstandard.dll</HintPath>
     </Reference>

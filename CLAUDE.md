@@ -763,10 +763,13 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - Foods near cold sources show "Chilled" after tier name
   - Works in quick navigation, detailed description, and detail lines
   - `GetTemperatureState()`, `IsHeated()`, `IsChilled()` methods added to ItemReader
-- ✅ **Fix chest rewards popup stuck**: Removed duplicate rewards handling
-  - ChestSceneScreen now delegates rewards to ChestRewardsUI via CollectionsPopulated event
-  - ChestRewardsUI only accepts Enter to close (not Escape, Space, or Backspace)
-  - Properly returns to chest selection state after dismissing rewards
+- ✅ **Chest rewards with item names**: ChestRewardsUI now loads real item names via Addressables
+  - Shows full item info: "Epic Hero Skin: Radiant Vanessa"
+  - Navigate rewards with Up/Down arrows ("Reward 1 of 10...")
+  - Summary announcement on open ("You received 10 rewards: 3 Common, 5 Uncommon...")
+  - Enter closes and returns to chest selection
+  - Works for single chest and multi-open (10 chests)
+- ✅ **Free item pickup message**: Items with 0 cost now say "Acquired [name]" instead of "Bought for 0 gold"
 - ✅ **Fix PvP/PvE opponent name confusion**: `Data.SimPvpOpponent` now correctly used for PvP encounters
   - ItemReader.GetEncounterInfo() shows opponent name for PvP encounters in selection menu
   - ItemReader.GetEncounterDetailedInfo() shows opponent name, level, wins, prestige
@@ -1049,10 +1052,12 @@ Accesible mediante `MenuPatches.cs` cuando se abre la escena de baúles.
 - Tipo de baúl: Muestra "Season X Chest: Y" donde Y es la cantidad
 - Open 10: Solo visible si tienes 10+ baúles del tipo seleccionado
 
-**Anuncios automáticos:**
-- "Select a chest" al entrar en modo selección
-- "Opening chest" al abrir un baúl
-- "Multi-select mode" al entrar en apertura múltiple
+**Recompensas (ChestRewardsUI):**
+- Después de abrir, se muestra el popup de recompensas con nombres reales
+- **Flechas arriba/abajo**: Navegar entre recompensas ("Reward 1 of 10...")
+- **Enter**: Cerrar y volver al menú de cofres
+- Muestra: rareza, tipo (Hero Skin, Board, etc.), nombre, gemas, vouchers, bonus chests
+- Carga nombres via Unity Addressables para mostrar el nombre real del item
 
 ### Pantalla de Colección (CollectionScreen)
 

@@ -185,7 +185,6 @@ public class ChestSceneScreen : BaseScreen
             _controller.ChangeState(ChestSceneController.States.MultiSelect);
 
             // Wait for chests to spawn and lever to be ready
-            // SpawnDummyChests takes ~4 seconds, then ShowUI subscribes the event
             await Task.Delay(5500);
 
             // Trigger the lever pull to start multi-open
@@ -194,8 +193,16 @@ public class ChestSceneScreen : BaseScreen
                 _controller.MultiOpenLever.TriggerPullAndRelease();
             }
 
-            // ChestRewardsUI will be shown automatically via ChestRewardsPatch
-            // when the CollectionsPopulated event fires
+            // Wait for multi-open animations to complete (varies by rarity, ~20 seconds)
+            await Task.Delay(20000);
+
+            // Show rewards
+            var rewards = _controller.playerChestInventory?.openedChestRewards;
+            if (rewards != null && rewards.Count > 0)
+            {
+                var ui = new UI.ChestRewardsUI(_controller.transform, rewards);
+                AccessibilityMgr.ShowUI(ui);
+            }
         }
         catch (Exception e)
         {
@@ -279,8 +286,8 @@ public class ChestSceneScreen : BaseScreen
                 // Transition to the Open state
                 _controller.ChangeState(ChestSceneController.States.Open);
 
-                // ChestRewardsUI will be shown automatically via ChestRewardsPatch
-                // when the CollectionsPopulated event fires
+                // Wait for animations to complete, then show rewards
+                await WaitAndShowRewards();
             }
             else
             {
@@ -292,5 +299,25 @@ public class ChestSceneScreen : BaseScreen
             Plugin.Logger.LogError($"Error opening chest: {e.Message}");
             TolkWrapper.Speak("Error opening chest");
         }
+    }
+
+    /// <summary>
+    /// Waits for chest opening animation and shows rewards UI.
+    /// </summary>
+    private async Task WaitAndShowRewards()
+    {
+        // Wait for chest animation to complete (approximately 5-6 seconds)
+        await Task.Delay(6000);
+
+        var rewards = _controller.playerChestInventory?.openedChestRewards;
+        if (rewards == null || rewards.Count == 0)
+        {
+            Plugin.Logger.LogWarning("ChestSceneScreen: No rewards found after opening");
+            return;
+        }
+
+        // Show rewards UI
+        var ui = new UI.ChestRewardsUI(_controller.transform, rewards);
+        AccessibilityMgr.ShowUI(ui);
     }
 }

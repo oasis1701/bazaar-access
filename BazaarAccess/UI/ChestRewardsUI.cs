@@ -1,124 +1,264 @@
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using BazaarAccess.Accessibility;
 using BazaarAccess.Core;
 using BazaarAccess.Screens;
-using BazaarGameShared.TempoNet.Models;
+using BazaarGameShared;
+using TheBazaar.Assets.Scripts.ScriptableObjectsScripts;
 using TheBazaar.Feature.Chest.Scene;
 using UnityEngine;
+using UnityEngine.AddressableAssets;
 
 namespace BazaarAccess.UI;
 
 /// <summary>
 /// Accessible UI for displaying chest rewards after opening.
-/// Only Enter closes this popup - user must explicitly confirm.
+/// Shows rewards as a navigable list. Enter closes and returns to chest selection.
 /// </summary>
 public class ChestRewardsUI : BaseUI
 {
     public override string UIName => "Chest Rewards";
 
     private List<PlayerChestInventory.ChestRewardResponse> _rewards;
-    private int _currentRewardIndex = 0;
+    private List<RewardInfo> _rewardInfos = new List<RewardInfo>();
+    private int _currentIndex = 0;
+    private bool _isLoading = true;
+
+    private struct RewardInfo
+    {
+        public string ItemName;
+        public string Rarity;
+        public string CollectionType;
+        public bool IsDuplicate;
+        public int Gems;
+        public int DuplicateGems;
+        public int RankedVouchers;
+        public int BonusChests;
+        public bool HasCollectible;
+    }
 
     public ChestRewardsUI(Transform root, List<PlayerChestInventory.ChestRewardResponse> rewards) : base(root)
     {
         _rewards = rewards ?? new List<PlayerChestInventory.ChestRewardResponse>();
+        // Start loading reward names asynchronously
+        _ = LoadRewardNamesAsync();
     }
 
     protected override void BuildMenu()
     {
-        // Just a single option to continue
-        Menu.AddOption(
-            () => "Press Enter to continue",
-            () => Close());
+        // Menu is not used - we handle navigation manually
+    }
+
+    private async Task LoadRewardNamesAsync()
+    {
+        _rewardInfos.Clear();
+
+        foreach (var reward in _rewards)
+        {
+            var info = new RewardInfo
+            {
+                Rarity = GetRarityName(reward.itemRarity),
+                IsDuplicate = reward.IsDuplicate,
+                Gems = reward.gems,
+                DuplicateGems = reward.DuplicateGems,
+                RankedVouchers = reward.rankedVouchers,
+                BonusChests = reward.bonusChest?.Length ?? 0,
+                HasCollectible = reward.collectibleItem != null && !string.IsNullOrEmpty(reward.collectibleItem.itemId)
+            };
+
+            // Try to load the collectible name
+            if (info.HasCollectible)
+            {
+                try
+                {
+                    var asset = await Addressables.LoadAssetAsync<CollectibleAssetDataSO>(reward.collectibleItem.itemId).Task;
+                    if (asset != null)
+                    {
+                        info.ItemName = asset.LocalizableName?.GetLocalizedText() ?? asset.Name ?? "Item";
+                        info.CollectionType = GetCollectionTypeName(asset.collectionType);
+                        Addressables.Release(asset);
+                    }
+                    else
+                    {
+                        info.ItemName = "Item";
+                    }
+                }
+                catch
+                {
+                    info.ItemName = "Item";
+                }
+            }
+
+            _rewardInfos.Add(info);
+        }
+
+        _isLoading = false;
+
+        // Now announce the rewards
+        AnnounceAllRewards();
+    }
+
+    private string GetRarityName(BazaarInventoryTypes.EChestRarity rarity)
+    {
+        return rarity switch
+        {
+            BazaarInventoryTypes.EChestRarity.Common => "Common",
+            BazaarInventoryTypes.EChestRarity.Uncommon => "Uncommon",
+            BazaarInventoryTypes.EChestRarity.Rare => "Rare",
+            BazaarInventoryTypes.EChestRarity.Epic => "Epic",
+            BazaarInventoryTypes.EChestRarity.Legendary => "Legendary",
+            _ => "Unknown"
+        };
+    }
+
+    private string GetCollectionTypeName(BazaarInventoryTypes.ECollectionType type)
+    {
+        return type switch
+        {
+            BazaarInventoryTypes.ECollectionType.HeroSkins => "Hero Skin",
+            BazaarInventoryTypes.ECollectionType.Boards => "Board",
+            BazaarInventoryTypes.ECollectionType.CardSkins => "Card Skin",
+            BazaarInventoryTypes.ECollectionType.Carpets => "Carpet",
+            BazaarInventoryTypes.ECollectionType.CardBacks => "Card Back",
+            BazaarInventoryTypes.ECollectionType.Stash => "Stash",
+            BazaarInventoryTypes.ECollectionType.Bank => "Bank",
+            BazaarInventoryTypes.ECollectionType.Toys => "Toy",
+            BazaarInventoryTypes.ECollectionType.Album => "Album",
+            _ => ""
+        };
     }
 
     public override void OnFocus()
     {
-        // Announce all rewards
-        if (_rewards.Count == 0)
+        // If still loading, wait for LoadRewardNamesAsync to call AnnounceAllRewards
+        if (_isLoading)
+        {
+            TolkWrapper.Speak("Loading rewards...");
+            return;
+        }
+
+        AnnounceAllRewards();
+    }
+
+    private void AnnounceAllRewards()
+    {
+        if (_rewardInfos.Count == 0)
         {
             TolkWrapper.Speak("No rewards. Press Enter to continue.");
             return;
         }
 
-        var rewardTexts = new List<string>();
+        // Build summary announcement
+        var parts = new List<string>();
 
-        foreach (var reward in _rewards)
+        if (_rewardInfos.Count == 1)
         {
-            var parts = new List<string>();
-
-            // Collection item
-            if (reward.collectibleItem != null && !string.IsNullOrEmpty(reward.collectibleItem.itemId))
-            {
-                string itemName = GetCollectibleName(reward.collectibleItem);
-                if (reward.IsDuplicate)
-                {
-                    parts.Add($"{itemName} (duplicate)");
-                }
-                else
-                {
-                    parts.Add(itemName);
-                }
-            }
-
-            // Gems
-            if (reward.gems > 0)
-            {
-                parts.Add($"{reward.gems} gems");
-            }
-
-            // Duplicate gems (extra gems for duplicate)
-            if (reward.DuplicateGems > 0)
-            {
-                parts.Add($"{reward.DuplicateGems} bonus gems for duplicate");
-            }
-
-            // Ranked vouchers
-            if (reward.rankedVouchers > 0)
-            {
-                parts.Add($"{reward.rankedVouchers} ranked vouchers");
-            }
-
-            // Bonus chests
-            if (reward.bonusChest != null && reward.bonusChest.Length > 0)
-            {
-                parts.Add($"{reward.bonusChest.Length} bonus chest{(reward.bonusChest.Length > 1 ? "s" : "")}");
-            }
-
-            // Rarity
-            string rarity = reward.itemRarity.ToString();
-
-            if (parts.Count > 0)
-            {
-                rewardTexts.Add($"{rarity}: {string.Join(", ", parts)}");
-            }
-        }
-
-        if (rewardTexts.Count == 0)
-        {
-            TolkWrapper.Speak("Chest opened. Press Enter to continue.");
-        }
-        else if (rewardTexts.Count == 1)
-        {
-            TolkWrapper.Speak($"You received: {rewardTexts[0]}. Press Enter to continue.");
+            parts.Add("You received");
+            parts.Add(GetRewardDescription(_rewardInfos[0]));
         }
         else
         {
-            TolkWrapper.Speak($"You received {_rewards.Count} rewards: {string.Join(". ", rewardTexts)}. Press Enter to continue.");
+            parts.Add($"You received {_rewardInfos.Count} rewards");
+
+            // Summarize by rarity
+            var rarityCounts = new Dictionary<string, int>();
+            int totalGems = 0;
+            int totalVouchers = 0;
+            int totalBonusChests = 0;
+
+            foreach (var info in _rewardInfos)
+            {
+                if (info.HasCollectible)
+                {
+                    if (!rarityCounts.ContainsKey(info.Rarity))
+                        rarityCounts[info.Rarity] = 0;
+                    rarityCounts[info.Rarity]++;
+                }
+                totalGems += info.Gems + info.DuplicateGems;
+                totalVouchers += info.RankedVouchers;
+                totalBonusChests += info.BonusChests;
+            }
+
+            // Add rarity summary
+            foreach (var kvp in rarityCounts)
+            {
+                parts.Add($"{kvp.Value} {kvp.Key}");
+            }
+
+            if (totalGems > 0)
+                parts.Add($"{totalGems} gems total");
+
+            if (totalVouchers > 0)
+                parts.Add($"{totalVouchers} ranked vouchers");
+
+            if (totalBonusChests > 0)
+                parts.Add($"{totalBonusChests} bonus chests");
         }
+
+        parts.Add("Use arrows to browse, Enter to continue");
+
+        TolkWrapper.Speak(string.Join(". ", parts));
     }
 
-    private string GetCollectibleName(BazaarCollectionItem item)
+    private string GetRewardDescription(RewardInfo info)
     {
-        if (item == null) return "Unknown item";
+        var parts = new List<string>();
 
-        // The collectible item has itemId which is a GUID/asset reference
-        if (!string.IsNullOrEmpty(item.itemId))
+        // Collectible item
+        if (info.HasCollectible)
         {
-            return "Collection item";
+            string itemDesc;
+            if (!string.IsNullOrEmpty(info.ItemName) && info.ItemName != "Item")
+            {
+                // Full description with name
+                if (!string.IsNullOrEmpty(info.CollectionType))
+                    itemDesc = $"{info.Rarity} {info.CollectionType}: {info.ItemName}";
+                else
+                    itemDesc = $"{info.Rarity}: {info.ItemName}";
+            }
+            else
+            {
+                // Fallback without name
+                itemDesc = $"{info.Rarity} item";
+            }
+
+            if (info.IsDuplicate)
+                itemDesc += " (duplicate)";
+
+            parts.Add(itemDesc);
         }
 
-        return "Item";
+        // Currencies
+        if (info.Gems > 0)
+            parts.Add($"{info.Gems} gems");
+
+        if (info.DuplicateGems > 0)
+            parts.Add($"{info.DuplicateGems} bonus gems");
+
+        if (info.RankedVouchers > 0)
+            parts.Add($"{info.RankedVouchers} ranked vouchers");
+
+        if (info.BonusChests > 0)
+            parts.Add($"{info.BonusChests} bonus chest{(info.BonusChests > 1 ? "s" : "")}");
+
+        if (parts.Count == 0)
+            return "Empty reward";
+
+        return string.Join(", ", parts);
+    }
+
+    private void ReadCurrentReward()
+    {
+        if (_rewardInfos.Count == 0) return;
+
+        if (_currentIndex < 0 || _currentIndex >= _rewardInfos.Count)
+            _currentIndex = 0;
+
+        var info = _rewardInfos[_currentIndex];
+        string position = _rewardInfos.Count > 1 ? $"Reward {_currentIndex + 1} of {_rewardInfos.Count}. " : "";
+        string description = GetRewardDescription(info);
+
+        TolkWrapper.Speak($"{position}{description}");
     }
 
     private void Close()
@@ -137,71 +277,53 @@ public class ChestRewardsUI : BaseUI
 
     public override void HandleInput(AccessibleKey key)
     {
-        // Only Enter closes the rewards popup
-        if (key == AccessibleKey.Confirm)
+        // If still loading, only allow Enter to close
+        if (_isLoading)
         {
-            Close();
+            if (key == AccessibleKey.Confirm)
+                Close();
             return;
         }
 
-        // Navigate rewards with up/down if there are multiple
-        if (_rewards.Count > 1)
+        switch (key)
         {
-            switch (key)
-            {
-                case AccessibleKey.Up:
-                    if (_currentRewardIndex > 0)
+            case AccessibleKey.Confirm:
+                Close();
+                break;
+
+            case AccessibleKey.Up:
+                if (_rewardInfos.Count > 0)
+                {
+                    if (_currentIndex > 0)
                     {
-                        _currentRewardIndex--;
+                        _currentIndex--;
                         ReadCurrentReward();
                     }
-                    return;
-
-                case AccessibleKey.Down:
-                    if (_currentRewardIndex < _rewards.Count - 1)
+                    else
                     {
-                        _currentRewardIndex++;
+                        ReadCurrentReward(); // Re-read first item
+                    }
+                }
+                break;
+
+            case AccessibleKey.Down:
+                if (_rewardInfos.Count > 0)
+                {
+                    if (_currentIndex < _rewardInfos.Count - 1)
+                    {
+                        _currentIndex++;
                         ReadCurrentReward();
                     }
-                    return;
-            }
+                    else
+                    {
+                        ReadCurrentReward(); // Re-read last item
+                    }
+                }
+                break;
+
+            // Ignore all other keys
+            default:
+                break;
         }
-
-        // Ignore all other keys - don't pass to base
-    }
-
-    private void ReadCurrentReward()
-    {
-        if (_currentRewardIndex < 0 || _currentRewardIndex >= _rewards.Count) return;
-
-        var reward = _rewards[_currentRewardIndex];
-        var parts = new List<string>();
-
-        parts.Add($"Reward {_currentRewardIndex + 1} of {_rewards.Count}");
-
-        if (reward.collectibleItem != null && !string.IsNullOrEmpty(reward.collectibleItem.itemId))
-        {
-            string itemName = GetCollectibleName(reward.collectibleItem);
-            if (reward.IsDuplicate)
-            {
-                parts.Add($"{itemName} (duplicate)");
-            }
-            else
-            {
-                parts.Add(itemName);
-            }
-        }
-
-        if (reward.gems > 0)
-        {
-            parts.Add($"{reward.gems} gems");
-        }
-
-        if (reward.DuplicateGems > 0)
-        {
-            parts.Add($"{reward.DuplicateGems} bonus gems");
-        }
-
-        TolkWrapper.Speak(string.Join(". ", parts));
     }
 }

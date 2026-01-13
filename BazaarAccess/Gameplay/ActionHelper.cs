@@ -45,7 +45,11 @@ public static class ActionHelper
 
             string name = ItemReader.GetCardName(card);
             int price = ItemReader.GetBuyPrice(card);
-            TolkWrapper.Speak($"Bought {name} for {price} gold");
+
+            if (price > 0)
+                TolkWrapper.Speak($"Bought {name} for {price} gold");
+            else
+                TolkWrapper.Speak($"Acquired {name}");
 
             Plugin.Logger.LogInfo($"BuyItem: {name} to {section}");
             return true;
