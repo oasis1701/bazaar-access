@@ -771,7 +771,8 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - Summary announcement on open ("You received 10 rewards: 3 Common, 5 Uncommon...")
   - Enter closes and returns to chest selection
   - Works for single chest and multi-open (10 chests)
-- ✅ **Free item pickup message**: Items with 0 cost now say "Acquired [name]" instead of "Bought for 0 gold"
+- ✅ **Free item pickup message**: Free items (loot, rewards, events) now say "Acquired [name]" instead of "Bought for X gold"
+  - Uses `isFree` parameter in `ActionHelper.BuyItem()` based on `IsSelectionFree()` context
 - ✅ **Fix PvP/PvE opponent name confusion**: `Data.SimPvpOpponent` now correctly used for PvP encounters
   - ItemReader.GetEncounterInfo() shows opponent name for PvP encounters in selection menu
   - ItemReader.GetEncounterDetailedInfo() shows opponent name, level, wins, prestige

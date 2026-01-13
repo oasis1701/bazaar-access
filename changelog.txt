@@ -13,7 +13,7 @@
   - Press H during combat for summary ("You dealt X, took Y. Health: A vs B")
 
 ### Bug Fixes
-- Fixed items in loot/rewards announcing as "Acquired" (now just says the item name)
+- Fixed free items (loot, rewards, events) now correctly say "Acquired [name]" instead of "Bought for X gold"
 - Fixed chest rewards finally working correctly with real item names
 
 ### Improvements

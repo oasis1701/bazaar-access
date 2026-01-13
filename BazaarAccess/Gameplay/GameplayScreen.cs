@@ -719,7 +719,7 @@ public class GameplayScreen : IAccessibleScreen
         if (_navigator.IsSelectionFree())
         {
             // En Loot/Rewards, los items son gratuitos
-            ActionHelper.BuyItem(itemCard);
+            ActionHelper.BuyItem(itemCard, toStash: false, silent: false, isFree: true);
             // Usar delayed refresh porque el SelectionSet tarda en actualizarse
             Plugin.Instance.StartCoroutine(DelayedRefreshAfterLoot());
         }

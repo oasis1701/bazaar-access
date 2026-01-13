@@ -22,8 +22,9 @@ public static class ActionHelper
     /// <param name="card">El item a comprar</param>
     /// <param name="toStash">True para comprar al stash, false para comprar al tablero</param>
     /// <param name="silent">True para no anunciar (el llamador maneja el mensaje)</param>
+    /// <param name="isFree">True si el item es gratuito (loot/rewards)</param>
     /// <returns>True si la compra fue exitosa</returns>
-    public static bool BuyItem(ItemCard card, bool toStash = false, bool silent = false)
+    public static bool BuyItem(ItemCard card, bool toStash = false, bool silent = false, bool isFree = false)
     {
         if (card == null)
         {
@@ -48,11 +49,18 @@ public static class ActionHelper
 
             if (!silent)
             {
-                int price = ItemReader.GetBuyPrice(card);
-                if (price > 0)
-                    TolkWrapper.Speak($"Bought {name} for {price} gold");
+                if (isFree)
+                {
+                    TolkWrapper.Speak($"Acquired {name}");
+                }
                 else
-                    TolkWrapper.Speak(name);
+                {
+                    int price = ItemReader.GetBuyPrice(card);
+                    if (price > 0)
+                        TolkWrapper.Speak($"Bought {name} for {price} gold");
+                    else
+                        TolkWrapper.Speak($"Acquired {name}");
+                }
             }
 
             Plugin.Logger.LogInfo($"BuyItem: {name} to {section}");
