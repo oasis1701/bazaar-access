@@ -57,13 +57,19 @@ public class GameplayScreen : IAccessibleScreen
                         _navigator.EnemyNextSubsection();
                         return;
 
-                    // Ctrl+Up/Down: Read detail lines
+                    // Ctrl+Up/Down: In Items = read detail lines, In Skills = navigate skills
                     case AccessibleKey.DetailUp:
-                        _navigator.EnemyDetailNext();
+                        if (_navigator.IsInEnemySkillsSubsection)
+                            _navigator.EnemySkillNext();
+                        else
+                            _navigator.EnemyDetailNext();
                         return;
 
                     case AccessibleKey.DetailDown:
-                        _navigator.EnemyDetailPrevious();
+                        if (_navigator.IsInEnemySkillsSubsection)
+                            _navigator.EnemySkillPrevious();
+                        else
+                            _navigator.EnemyDetailPrevious();
                         return;
 
                     // Enter: Read full description
@@ -80,7 +86,7 @@ public class GameplayScreen : IAccessibleScreen
                     // Backspace: Exit enemy mode
                     case AccessibleKey.Back:
                         _navigator.ExitEnemyMode();
-                        TolkWrapper.Speak("Exited opponent board. Enter to continue, R to replay, E for recap.");
+                        TolkWrapper.Speak("Exited opponent board. Enter to continue, or G to return.");
                         return;
                 }
             }
@@ -107,13 +113,32 @@ public class GameplayScreen : IAccessibleScreen
                     _navigator.ReadEnemyInfo();
                     break;
 
-                case AccessibleKey.GoToStash: // G key - go to opponent board
-                    _navigator.EnterOpponentBoardMode();
+                case AccessibleKey.GoToStash: // G key - go to opponent board (only in recap mode)
+                    if (_navigator.IsInRecapMode)
+                    {
+                        _navigator.EnterOpponentBoardMode();
+                    }
+                    else
+                    {
+                        TolkWrapper.Speak("Press E for Recap first, then G for opponent board.");
+                    }
+                    break;
+
+                case AccessibleKey.WinsInfo:
+                    // W key - wins info (also available during replay)
+                    _navigator.AnnounceWins();
                     break;
 
                 case AccessibleKey.Back:
                     // Solo recordar brevemente, no repetir el mensaje completo
-                    TolkWrapper.Speak("Post-combat. Enter, R, E, or G for opponent board.");
+                    if (_navigator.IsInRecapMode)
+                    {
+                        TolkWrapper.Speak("Recap mode. Enter to continue, G for opponent board.");
+                    }
+                    else
+                    {
+                        TolkWrapper.Speak("Post-combat. Enter to continue, R to replay, E for recap.");
+                    }
                     break;
 
                 // Ignorar todas las demás teclas durante replay mode
@@ -205,6 +230,11 @@ public class GameplayScreen : IAccessibleScreen
                 case AccessibleKey.CombatSummary:
                     // H key - get combat summary
                     TolkWrapper.Speak(CombatDescriber.GetCombatSummary());
+                    break;
+
+                case AccessibleKey.WinsInfo:
+                    // W key - wins info (also available during combat)
+                    _navigator.AnnounceWins();
                     break;
 
                 case AccessibleKey.Back:
@@ -419,6 +449,11 @@ public class GameplayScreen : IAccessibleScreen
             case AccessibleKey.StashInfo:
                 _navigator.AnnounceStashCapacity();
                 break;
+
+            // W - Wins info
+            case AccessibleKey.WinsInfo:
+                _navigator.AnnounceWins();
+                break;
         }
     }
 
@@ -479,7 +514,7 @@ public class GameplayScreen : IAccessibleScreen
     public string GetHelp()
     {
         return "Left/Right: Navigate items. Tab: Switch section. Space: Stash. " +
-               "B: Board. V: Hero. C: Choices. F: Enemy info. I: Property info. " +
+               "B: Board. V: Hero. C: Choices. F: Enemy info. I: Property info. W: Wins. " +
                "Enter: Select/Buy/Sell. E: Exit. R: Refresh. Shift+U: Upgrade. " +
                "Shift+Up/Down: Move to board/stash. Shift+Left/Right: Reorder. " +
                "Ctrl+Up/Down: Read item details or navigate Hero stats. " +
@@ -1184,7 +1219,8 @@ public class GameplayScreen : IAccessibleScreen
             {
                 TolkWrapper.Speak("Replaying combat");
                 replayMethod.Invoke(currentState, null);
-                // NO salir del modo replay - seguimos en ReplayState durante el replay
+                // Salir del modo recap si estábamos en él (R inicia animación)
+                _navigator.SetRecapMode(false);
             }
         }
         catch (System.Exception ex)
@@ -1214,9 +1250,10 @@ public class GameplayScreen : IAccessibleScreen
             var recapMethod = replayStateType.GetMethod("Recap");
             if (recapMethod != null)
             {
-                TolkWrapper.Speak("Showing recap");
+                TolkWrapper.Speak("Recap. Press G for opponent board.");
                 recapMethod.Invoke(currentState, null);
-                // NO salir del modo replay - seguimos en ReplayState durante el recap
+                // Activar modo recap - ahora G funcionará
+                _navigator.SetRecapMode(true);
             }
         }
         catch (System.Exception ex)

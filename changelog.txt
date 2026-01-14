@@ -2,6 +2,24 @@
 
 ---
 
+## January 14, 2026
+
+### New Features
+- Press W to hear current run wins (e.g., "3 wins")
+
+### Bug Fixes
+- Fixed opponent skills not showing when switching with Ctrl+Right
+- Fixed opponent board (G) being accessible without entering Recap first
+
+### Improvements
+- Opponent skills navigation now works like hero skills:
+  - Ctrl+Right to switch to Skills announces first skill with description
+  - Ctrl+Up/Down navigates between skills with name + description
+- G key now requires pressing E (Recap) first for a cleaner post-combat flow
+- Post-combat messages updated for clarity
+
+---
+
 ## January 13, 2026
 
 ### New Features

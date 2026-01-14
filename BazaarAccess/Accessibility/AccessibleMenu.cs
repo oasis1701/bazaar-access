@@ -398,5 +398,7 @@ public enum AccessibleKey
     PageUp,         // Page Up - Navigate faster (10 items)
     PageDown,       // Page Down - Navigate faster (10 items)
     // Combat
-    CombatSummary   // H - Combat summary (damage dealt/taken, health)
+    CombatSummary,  // H - Combat summary (damage dealt/taken, health)
+    // Wins info
+    WinsInfo        // W - Announce current wins/victories
 }

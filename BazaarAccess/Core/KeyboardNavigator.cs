@@ -185,6 +185,10 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.H:
                 return AccessibleKey.CombatSummary;
 
+            // Wins info
+            case KeyCode.W:
+                return AccessibleKey.WinsInfo;
+
             // Fast navigation
             case KeyCode.Home:
                 return AccessibleKey.Home;

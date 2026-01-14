@@ -100,6 +100,7 @@ public class GameplayNavigator
 
     // Modo replay (post-combate)
     private bool _inReplayMode = false;
+    private bool _inRecapMode = false;
 
     // Navegación detallada línea por línea
     private List<string> _detailLines = new List<string>();
@@ -623,6 +624,11 @@ public class GameplayNavigator
     public bool IsInReplayMode => _inReplayMode;
 
     /// <summary>
+    /// Indica si estamos en modo recap (después de pulsar E en ReplayState).
+    /// </summary>
+    public bool IsInRecapMode => _inRecapMode;
+
+    /// <summary>
     /// Activa o desactiva el modo replay (post-combate).
     /// </summary>
     public void SetReplayMode(bool inReplayMode)
@@ -633,6 +639,19 @@ public class GameplayNavigator
             // Salir del modo combate si entramos en replay
             _inCombat = false;
         }
+        else
+        {
+            // Al salir de replay, también salir de recap
+            _inRecapMode = false;
+        }
+    }
+
+    /// <summary>
+    /// Activa el modo recap (después de pulsar E en ReplayState).
+    /// </summary>
+    public void SetRecapMode(bool inRecapMode)
+    {
+        _inRecapMode = inRecapMode;
     }
 
     /// <summary>
@@ -783,22 +802,19 @@ public class GameplayNavigator
             }
         }
 
-        // Si no hay skills en los sockets, intentar desde Data.Run.Opponent.Skills
-        if (_enemySkillIndices.Count == 0)
+        // Siempre intentar cargar skills desde Data.Run.Opponent.Skills como respaldo
+        try
         {
-            try
+            var opponent = Data.Run?.Opponent;
+            if (opponent?.Skills != null)
             {
-                var opponent = Data.Run?.Opponent;
-                if (opponent?.Skills != null)
-                {
-                    _enemySkills.AddRange(opponent.Skills);
-                    Plugin.Logger.LogInfo($"RefreshEnemyItems: Got {_enemySkills.Count} skills from Opponent.Skills");
-                }
+                _enemySkills.AddRange(opponent.Skills);
+                Plugin.Logger.LogInfo($"RefreshEnemyItems: Got {_enemySkills.Count} skills from Opponent.Skills");
             }
-            catch (System.Exception ex)
-            {
-                Plugin.Logger.LogWarning($"RefreshEnemyItems: Failed to get Opponent.Skills: {ex.Message}");
-            }
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogWarning($"RefreshEnemyItems: Failed to get Opponent.Skills: {ex.Message}");
         }
 
         Plugin.Logger.LogInfo($"RefreshEnemyItems: {_enemyItemIndices.Count} items, {_enemySkillIndices.Count} socket skills, {_enemySkills.Count} data skills");
@@ -1007,11 +1023,17 @@ public class GameplayNavigator
         {
             _enemySubsection = EnemySubsection.Skills;
             _enemySkillIndex = 0;
-            TolkWrapper.Speak($"Skills, {skillCount}");
+            // Announce first skill with description (like hero skills)
+            AnnounceEnemySkill();
+        }
+        else if (_enemySubsection == EnemySubsection.Items)
+        {
+            TolkWrapper.Speak("No skills");
         }
         else
         {
-            TolkWrapper.Speak(_enemySubsection == EnemySubsection.Items ? "Items" : "Skills");
+            // Already in Skills, re-announce current skill
+            AnnounceEnemySkill();
         }
     }
 
@@ -1034,6 +1056,88 @@ public class GameplayNavigator
             TolkWrapper.Speak(_enemySubsection == EnemySubsection.Items ? "Items" : "Skills");
         }
     }
+
+    /// <summary>
+    /// Navigate to next enemy skill (Ctrl+Up in Skills subsection).
+    /// Similar to HeroNext() for hero skills.
+    /// </summary>
+    public void EnemySkillNext()
+    {
+        if (!_enemyMode || _enemySubsection != EnemySubsection.Skills) return;
+
+        int skillCount = GetEnemySkillCount();
+        if (skillCount == 0) return;
+
+        if (_enemySkillIndex >= skillCount - 1)
+        {
+            // Already at end, just re-announce current skill
+            AnnounceEnemySkill();
+            return;
+        }
+
+        _enemySkillIndex++;
+        AnnounceEnemySkill();
+    }
+
+    /// <summary>
+    /// Navigate to previous enemy skill (Ctrl+Down in Skills subsection).
+    /// Similar to HeroPrevious() for hero skills.
+    /// </summary>
+    public void EnemySkillPrevious()
+    {
+        if (!_enemyMode || _enemySubsection != EnemySubsection.Skills) return;
+
+        int skillCount = GetEnemySkillCount();
+        if (skillCount == 0) return;
+
+        if (_enemySkillIndex <= 0)
+        {
+            // Already at start, just re-announce current skill
+            AnnounceEnemySkill();
+            return;
+        }
+
+        _enemySkillIndex--;
+        AnnounceEnemySkill();
+    }
+
+    /// <summary>
+    /// Announces the current enemy skill with name and description.
+    /// Similar to AnnounceHeroSkill().
+    /// </summary>
+    private void AnnounceEnemySkill()
+    {
+        int skillCount = GetEnemySkillCount();
+        if (_enemySkillIndex < 0 || _enemySkillIndex >= skillCount)
+        {
+            TolkWrapper.Speak("No skill");
+            return;
+        }
+
+        var card = GetCurrentEnemyCard();
+        if (card == null)
+        {
+            TolkWrapper.Speak($"Empty slot, {_enemySkillIndex + 1} of {skillCount}");
+            return;
+        }
+
+        string name = ItemReader.GetCardName(card);
+        string desc = ItemReader.GetFullDescription(card);
+
+        if (!string.IsNullOrEmpty(desc))
+        {
+            TolkWrapper.Speak($"{name}: {desc}, {_enemySkillIndex + 1} of {skillCount}");
+        }
+        else
+        {
+            TolkWrapper.Speak($"{name}, {_enemySkillIndex + 1} of {skillCount}");
+        }
+    }
+
+    /// <summary>
+    /// Returns true if currently in enemy Skills subsection.
+    /// </summary>
+    public bool IsInEnemySkillsSubsection => _enemyMode && _enemySubsection == EnemySubsection.Skills;
 
     /// <summary>
     /// Read next detail line of current enemy item (Ctrl+Up).
@@ -1120,9 +1224,8 @@ public class GameplayNavigator
     /// </summary>
     private int GetEnemySkillCount()
     {
-        if (_enemySkillIndices.Count > 0)
-            return _enemySkillIndices.Count;
-        return _enemySkills.Count;
+        // Return the max of both sources since we fall back between them
+        return System.Math.Max(_enemySkillIndices.Count, _enemySkills.Count);
     }
 
     /// <summary>
@@ -1149,11 +1252,12 @@ public class GameplayNavigator
                 if (_enemySkillIndex < _enemySkillIndices.Count)
                 {
                     int idx = _enemySkillIndices[_enemySkillIndex];
-                    return bm.opponentSkillSockets[idx]?.CardController?.CardData;
+                    var card = bm.opponentSkillSockets[idx]?.CardController?.CardData;
+                    if (card != null) return card;
                 }
             }
             // Fallback to data
-            else if (_enemySkillIndex < _enemySkills.Count)
+            if (_enemySkillIndex < _enemySkills.Count)
             {
                 return _enemySkills[_enemySkillIndex];
             }
@@ -1955,6 +2059,15 @@ public class GameplayNavigator
         EPlayerAttributeType.Income => "Income",
         _ => type.ToString()
     };
+
+    /// <summary>
+    /// Announces wins for the current run.
+    /// </summary>
+    public void AnnounceWins()
+    {
+        var wins = Data.Run?.Victories ?? 0;
+        TolkWrapper.Speak($"{wins} wins");
+    }
 
     /// <summary>
     /// Announces the board capacity information.

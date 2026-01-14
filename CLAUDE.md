@@ -408,6 +408,7 @@ Pantalla accesible principal del gameplay que implementa `IAccessibleScreen`. Se
 - `T`: Ver capacidad del tablero (slots usados/disponibles)
 - `S`: Ver capacidad del stash (slots usados/disponibles)
 - `H`: Ver resumen del combate (solo durante combate)
+- `W`: Ver victorias de la partida actual
 
 **Controles en Hero (V)**:
 - `Ctrl+Arriba`: Siguiente stat o skill
@@ -551,27 +552,29 @@ Durante el combate (`ERunState.Combat` o `ERunState.PVPCombat`):
 ### Post-Combate (ReplayState)
 
 Después del combate, se entra en `ReplayState`:
-- Se anuncia: "Combat finished. Press Enter to continue, R to replay, or E for recap."
+- Se anuncia: "Combat ended. Enter to continue."
 - **Enter**: Continuar (sale del ReplayState)
 - **R**: Repetir el combate (replay animado con Combat Describer)
-- **E**: Ver Recap (vista estática de ambos tableros, SIN Combat Describer)
+- **E**: Ver Recap - activa el modo recap y permite ver tablero del oponente con G
 - **V**: Ver stats del héroe
 - **F**: Ver stats del enemigo
-- **G**: Ver tablero del oponente (Backspace para salir)
+- **W**: Ver victorias de la partida
+- **G**: Solo funciona después de pulsar E (Recap)
 - Otras teclas están desactivadas
 
-**Navegación del tablero del oponente (G):**
-- **Flechas izq/der**: Navegar items o skills
+**Navegación del tablero del oponente (G en Recap):**
+- Requiere pulsar **E** (Recap) primero
+- **Flechas izq/der**: Navegar items en la subsección actual
 - **Ctrl+Izq/Der**: Cambiar subsección (Items ↔ Skills)
-- **Ctrl+Arriba/Abajo**: Leer detalles línea por línea
+- **Ctrl+Arriba/Abajo**:
+  - En Items: Leer detalles línea por línea
+  - En Skills: Navegar entre skills (igual que en Hero)
 - **Enter**: Leer descripción completa
 - **Backspace**: Salir del modo oponente
-- **Recomendado**: Usar E (Recap) primero, luego G para navegar sin interrupciones
-- Si R (Replay) está activo, G sugiere usar E en su lugar
 
 **Diferencia entre Replay y Recap:**
 - **Replay (R)**: Reproduce la batalla con animaciones. El Combat Describer narra los efectos.
-- **Recap (E)**: Vista estática de los tableros. Sin animaciones ni narración. Ideal para revisar builds.
+- **Recap (E)**: Vista estática de los tableros. Permite navegar el tablero del oponente con G.
 
 ### Stash (Almacén)
 
@@ -818,6 +821,12 @@ Cada estado define `AllowedOps` que incluye `StateOps.SellItem`.
   - **H key**: Press H during combat for summary ("You dealt X, took Y. Health: A vs B")
   - Periodic health announcements every 5 seconds
   - Much less spam while providing more useful context
+- ✅ **W key for wins**: Press W during gameplay to hear current run wins
+- ✅ **G key requires Recap**: Must press E (Recap) first, then G for opponent board
+  - Cleaner post-combat flow without accidental board viewing
+- ✅ **Opponent skills like hero skills**: Navigation in Skills subsection works identically
+  - Ctrl+Right announces first skill with name + description
+  - Ctrl+Up/Down navigates between skills with full info
 
 ---
 
