@@ -474,7 +474,12 @@ public static class ItemReader
         }
 
         // Cooldown (convertir de ms a segundos)
+        // Try Cooldown first, fallback to CooldownMax (base cooldown shown in UI)
         var cooldown = card.GetAttributeValue(ECardAttributeType.Cooldown);
+        if (!cooldown.HasValue || cooldown.Value <= 0)
+        {
+            cooldown = card.GetAttributeValue(ECardAttributeType.CooldownMax);
+        }
         if (cooldown.HasValue && cooldown.Value > 0)
         {
             float seconds = cooldown.Value / 1000f;
@@ -855,7 +860,12 @@ public static class ItemReader
         }
 
         // Cooldown
+        // Try Cooldown first, fallback to CooldownMax (base cooldown shown in UI)
         var cooldown = card.GetAttributeValue(ECardAttributeType.Cooldown);
+        if (!cooldown.HasValue || cooldown.Value <= 0)
+        {
+            cooldown = card.GetAttributeValue(ECardAttributeType.CooldownMax);
+        }
         if (cooldown.HasValue && cooldown.Value > 0)
         {
             float seconds = cooldown.Value / 1000f;
