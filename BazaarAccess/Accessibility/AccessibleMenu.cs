@@ -404,5 +404,7 @@ public enum AccessibleKey
     DamageDealt,    // 3 - Damage dealt (number only)
     DamageTaken,    // 4 - Damage taken (number only)
     // Wins info
-    WinsInfo        // W - Announce current wins/victories
+    WinsInfo,       // W - Announce current wins/victories
+    // Combat mode toggle
+    ToggleCombatMode  // Ctrl+M - Toggle between individual and batched combat announcements
 }

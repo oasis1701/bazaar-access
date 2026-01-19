@@ -215,6 +215,10 @@ public class GameplayScreen : IAccessibleScreen
                     _navigator.ReadEnemyInfo();
                     break;
 
+                case AccessibleKey.ToggleCombatMode:
+                    CombatDescriber.ToggleMode();
+                    break;
+
                 // Ctrl+Up/Down para navegar stats/skills en Hero durante combate
                 case AccessibleKey.DetailUp:
                     if (_navigator.IsInHeroSection)
@@ -492,6 +496,11 @@ public class GameplayScreen : IAccessibleScreen
             // W - Wins info
             case AccessibleKey.WinsInfo:
                 _navigator.AnnounceWins();
+                break;
+
+            // Ctrl+M - Toggle combat announcement mode
+            case AccessibleKey.ToggleCombatMode:
+                CombatDescriber.ToggleMode();
                 break;
         }
     }

@@ -185,6 +185,11 @@ public class KeyboardNavigator : MonoBehaviour
             case KeyCode.H:
                 return AccessibleKey.CombatSummary;
 
+            // Combat mode toggle
+            case KeyCode.M:
+                if (ctrl) return AccessibleKey.ToggleCombatMode;
+                return AccessibleKey.None;
+
             // Wins info
             case KeyCode.W:
                 return AccessibleKey.WinsInfo;
