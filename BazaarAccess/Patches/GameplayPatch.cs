@@ -82,6 +82,7 @@ public static class GameplayPatch
         // Si hay contenido inmediatamente, anunciar
         if (_gameplayScreen.HasContent())
         {
+            AnnounceInitialDayHour();
             _gameplayScreen.ForceAnnounceState();
             Plugin.Logger.LogInfo("DelayedInitialize: Content found on first check");
             yield break;
@@ -98,8 +99,34 @@ public static class GameplayPatch
 
         // Anunciar estado final - siempre anunciar después de esperar
         Plugin.Logger.LogInfo($"DelayedInitialize: Final check, hasContent={_gameplayScreen.HasContent()}");
+        AnnounceInitialDayHour();
         _gameplayScreen.ForceAnnounceState();
         Plugin.Logger.LogInfo("DelayedInitialize: Announced state");
+    }
+
+    /// <summary>
+    /// Announces the current day and hour when first loading into gameplay.
+    /// </summary>
+    private static void AnnounceInitialDayHour()
+    {
+        try
+        {
+            var run = Data.Run;
+            if (run == null) return;
+
+            uint day = run.Day;
+            uint hour = run.Hour;
+
+            if (day > 0 && hour > 0)
+            {
+                TolkWrapper.Speak($"Day {day}, Hour {hour}");
+                Plugin.Logger.LogInfo($"AnnounceInitialDayHour: Day {day}, Hour {hour}");
+            }
+        }
+        catch (System.Exception ex)
+        {
+            Plugin.Logger.LogError($"AnnounceInitialDayHour error: {ex.Message}");
+        }
     }
 
     /// <summary>
