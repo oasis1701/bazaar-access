@@ -16,6 +16,7 @@ using UnityEngine;
 // For combat describer events
 using EffectTriggeredEvent = TheBazaar.EffectTriggeredEvent;
 using PlayerHealthChangedEvent = TheBazaar.PlayerHealthChangedEvent;
+using PlayerAttributeChangedEvent = TheBazaar.PlayerAttributeChangedEvent;
 
 namespace BazaarAccess.Patches;
 
@@ -153,6 +154,10 @@ public static class StateChangePatch
                 (Action<GameSimEventCardEnchanted>)OnCardEnchanted);
             SubscribeToEvent("CardUpgradedSimEvent", typeof(Action<GameSimEventCardUpgraded>),
                 (Action<GameSimEventCardUpgraded>)OnCardUpgraded);
+
+            // === XP and Level events (via PlayerAttributeChanged) ===
+            SubscribeToEvent("PlayerAttributeChanged", typeof(Action<PlayerAttributeChangedEvent>),
+                (Action<PlayerAttributeChangedEvent>)OnPlayerAttributeChanged);
 
             Plugin.Logger.LogInfo("StateChangePatch: Subscribed to game events");
         }
@@ -743,6 +748,44 @@ public static class StateChangePatch
 
         // Refresh to pick up new attributes
         TriggerRefresh();
+    }
+
+    /// <summary>
+    /// When a player attribute changes - check for level-up or XP gain.
+    /// </summary>
+    private static void OnPlayerAttributeChanged(PlayerAttributeChangedEvent evt)
+    {
+        // Only care about player's attribute changes
+        if (evt.CombatantId != ECombatantId.Player) return;
+
+        // Handle Level changes (level-up)
+        if (evt.Update.AttributeType == EPlayerAttributeType.Level)
+        {
+            int newLevel = evt.Update.CurrentValue;
+            int oldLevel = evt.Update.PreviousValue;
+
+            Plugin.Logger.LogInfo($"LevelChanged: {oldLevel} -> {newLevel}");
+
+            if (newLevel > oldLevel)
+            {
+                TolkWrapper.Speak($"Level up! Level {newLevel}");
+            }
+        }
+        // Handle Experience changes (XP gain from combat)
+        else if (evt.Update.AttributeType == EPlayerAttributeType.Experience)
+        {
+            int newXP = evt.Update.CurrentValue;
+            int oldXP = evt.Update.PreviousValue;
+            int gained = newXP - oldXP;
+
+            Plugin.Logger.LogInfo($"ExperienceChanged: {oldXP} -> {newXP} (gained {gained})");
+
+            // Only announce if XP increased (not decreased due to level-up reset)
+            if (gained > 0)
+            {
+                TolkWrapper.Speak($"+{gained} XP");
+            }
+        }
     }
 
     /// <summary>
